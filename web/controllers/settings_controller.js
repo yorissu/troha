@@ -10,7 +10,7 @@
 
 import { clockText, toKey } from '../core/dates.js';
 import { fitSleepIntoNight } from '../models/settings.js';
-import { dataFileName, deleteFile, listFiles, savesDone, setClock, syncClock, useFile } from '../models/api.js';
+import { dataFileName, deleteFile, listFiles, savesDone, ServerLost, setClock, syncClock, useFile } from '../models/api.js';
 
 const PROBLEMS = {
 	offline: 'No network right now. Tap the date or the time to set it yourself.',
@@ -28,7 +28,6 @@ export class SettingsController {
 	#confirm;
 	#toast;
 	#clock;
-	#toastMs;
 	#onTimeRangeChange;
 	#onFileChange;
 
@@ -42,11 +41,10 @@ export class SettingsController {
 	 * @param {import('../views/sheets/confirm_sheet/confirm_sheet.js').ConfirmSheet} options.confirm For "Delete this file?".
 	 * @param {import('../views/overlays/toast/toast.js').Toast} options.toast
 	 * @param {import('../core/clock.js').Clock} options.clock
-	 * @param {{short: number, normal: number, long: number}} options.toastMs How long toasts stay.
 	 * @param {() => void} options.onTimeRangeChange Re-applies whatever follows the night or sleep time.
 	 * @param {() => void} options.onFileChange Another data file is now in use (the app starts afresh with it).
 	 */
-	constructor({ store, view, datePicker, timePicker, filePicker, confirm, toast, clock, toastMs, onTimeRangeChange, onFileChange }) {
+	constructor({ store, view, datePicker, timePicker, filePicker, confirm, toast, clock, onTimeRangeChange, onFileChange }) {
 		this.#store = store;
 		this.#view = view;
 		this.#datePicker = datePicker;
@@ -55,7 +53,6 @@ export class SettingsController {
 		this.#confirm = confirm;
 		this.#toast = toast;
 		this.#clock = clock;
-		this.#toastMs = toastMs;
 		this.#onTimeRangeChange = onTimeRangeChange;
 		this.#onFileChange = onFileChange;
 	}
@@ -117,7 +114,6 @@ export class SettingsController {
 				this.#onTimeRangeChange();
 				this.#store.save();
 			},
-			onCancel: () => this.#timePicker.close(),
 		});
 	}
 
@@ -142,7 +138,6 @@ export class SettingsController {
 				this.#datePicker.close();
 				this.#setByHand({ date: day, time: clockText(new Date()) }, 'Date set');
 			},
-			onCancel: () => this.#datePicker.close(),
 		});
 	}
 
@@ -155,7 +150,6 @@ export class SettingsController {
 				this.#timePicker.close();
 				this.#setByHand({ date: toKey(new Date()), time }, `Time set to ${time}`);
 			},
-			onCancel: () => this.#timePicker.close(),
 		});
 	}
 
@@ -191,7 +185,7 @@ export class SettingsController {
 			onNo: backToFiles,
 			onYes: async () => {
 				const result = await deleteFile(name);
-				this.#toast.show(result.ok ? `Deleted “${name}”` : `Couldn't delete “${name}”.`, { duration: this.#toastMs.short });
+				this.#toast.show(result.ok ? `Deleted “${name}”` : `Couldn't delete “${name}”.`, { duration: 'short' });
 				setTimeout(backToFiles, 450); // after the "deleted" exit
 			},
 		});
@@ -200,8 +194,8 @@ export class SettingsController {
 	async #listFiles() {
 		try {
 			return await listFiles();
-		} catch {
-			this.#toast.show("Couldn't list the data files. Is server.py running?");
+		} catch (error) {
+			if (!(error instanceof ServerLost)) this.#toast.show("Couldn't list the data files.", { duration: 'long' });
 			return null;
 		}
 	}
@@ -217,14 +211,14 @@ export class SettingsController {
 		} else if (result.reason === 'exists') {
 			this.#filePicker.markTaken();
 		} else {
-			this.#toast.show(`Couldn't switch to “${name}”.`);
+			this.#toast.show(`Couldn't switch to “${name}”.`, { duration: 'long' });
 		}
 	}
 
 	async #setByHand(when, message) {
 		const result = await setClock(when);
 		// Not the Pi (e.g. while developing): it can be tried, but the clock stays as it is.
-		if (result.ok && result.test) this.#toast.show(`Test only, the clock stays as it is: ${when.date} ${when.time}`, { duration: this.#toastMs.long });
+		if (result.ok && result.test) this.#toast.show(`Test only, the clock stays as it is: ${when.date} ${when.time}`, { duration: 'long' });
 		else if (result.ok) this.#clockWasSet(message);
 		else this.#view.showClockNote(PROBLEMS[result.reason] ?? PROBLEMS.failed);
 	}
@@ -232,6 +226,6 @@ export class SettingsController {
 	#clockWasSet(message) {
 		this.#view.showClockNote(null);
 		this.#view.showNow(new Date());
-		this.#toast.show(message, { duration: this.#toastMs.normal });
+		this.#toast.show(message);
 	}
 }

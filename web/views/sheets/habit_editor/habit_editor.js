@@ -12,6 +12,7 @@ import { Sheet } from '../../base/sheet/sheet.js';
 import { Button } from '../../base/button/button.js';
 import { PickButton } from '../../controls/pick_button/pick_button.js';
 import { PillRow } from '../../controls/pill_row/pill_row.js';
+import { TextField } from '../../controls/text_field/text_field.js';
 
 const NAME_PLACEHOLDER = 'Water the plants';
 const NAME_MISSING = 'Give the habit a name';
@@ -51,23 +52,17 @@ export class HabitEditor extends Sheet {
 	 * @param {(element: HTMLElement) => void} options.onNeedLogin Private was tapped while logged out.
 	 */
 	constructor(host, options) {
-		super(host, { tag: 'form', className: 'editor-sheet' });
+		super(host, { className: 'editor-sheet', onSubmit: () => this.#submit() });
 		this.#options = options;
-		this.element.autocomplete = 'off';
-		this.element.addEventListener('submit', (event) => this.#submit(event));
 
-		this.#name = h('input', {
-			className: 'text-input',
+		this.#name = new TextField({
+			keyboard: options.keyboard,
 			id: 'habit-name',
 			maxLength: options.nameMaxLength,
 			placeholder: NAME_PLACEHOLDER,
-			attrs: { inputmode: 'none' }, // use the on-screen keyboard, not the system one
-			on: {
-				input: () => { this.#clearInvalid(); this.#applyEdit(); },
-				focus: () => { if (this.#name.value.trim()) this.#nameBefore = this.#name.value; },
-			},
+			onInput: () => { this.#clearInvalid(); this.#applyEdit(); },
+			onFocus: () => { if (this.#name.value.trim()) this.#nameBefore = this.#name.value; },
 		});
-		options.keyboard.attach(this.#name);
 
 		this.#startButton = new PickButton({ icon: 'calendar', onTap: () => this.#pickStart() });
 		this.#deleteButton = new Button({
@@ -81,7 +76,7 @@ export class HabitEditor extends Sheet {
 		this.element.append(
 			this.#heading,
 			h('label', { className: 'field-label', htmlFor: 'habit-name', text: 'Name' }),
-			this.#name,
+			this.#name.element,
 			h('div', { className: 'field-label', text: 'Days' }),
 			this.#dayPills.element,
 			h('div', { className: 'field-label', text: 'Repeat' }),
@@ -230,8 +225,8 @@ export class HabitEditor extends Sheet {
 		const draft = this.#draft;
 		const name = this.#name.value.trim();
 		if (!name) {
-			this.#name.placeholder = NAME_MISSING;
-			return markInvalid(this.#name);
+			this.#name.markInvalid(NAME_MISSING);
+			return null;
 		}
 		if (draft.days.size === 0) return markInvalid(this.#dayPills.element);
 		return {
@@ -246,9 +241,8 @@ export class HabitEditor extends Sheet {
 
 	/** Clears the red marks of a missing name or days (see markInvalid in core/dom.js). */
 	#clearInvalid() {
-		clearInvalid(this.#name);
+		this.#name.clearMarks();
 		clearInvalid(this.#dayPills.element);
-		this.#name.placeholder = NAME_PLACEHOLDER;
 	}
 
 	/** Editing: every valid change applies right away. */
@@ -258,8 +252,7 @@ export class HabitEditor extends Sheet {
 		if (fields) this.#options.onChange(this.#habit, fields);
 	}
 
-	#submit(event) {
-		event.preventDefault();
+	#submit() {
 		if (this.#habit) {
 			this.close(); // Enter while editing just closes
 			return;

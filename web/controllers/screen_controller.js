@@ -13,7 +13,8 @@
  * when the screen is off, so it catches the waking tap.
  */
 
-import { isInTimeRange } from '../core/dates.js';
+import { isInTimeRange, timeRangeText } from '../core/dates.js';
+import { rememberLook } from '../core/look_memory.js';
 import { backlightSupported, setBacklight } from '../models/api.js';
 import { choiceLabel, nextChoice } from '../models/settings.js';
 
@@ -43,7 +44,7 @@ export class ScreenController {
 	 *          screen: import('../views/controls/screen_button/screen_button.js').ScreenButton}} options.buttons
 	 * @param {import('../views/overlays/toast/toast.js').Toast} options.toast
 	 * @param {import('../core/idle_timer.js').IdleTimer} options.idle
-	 * @param {typeof import('../config.js').config} options.config Uses `screen` and `toastMs`.
+	 * @param {typeof import('../config.js').config} options.config Uses `screen`.
 	 */
 	constructor({ store, stage, shade, buttons, toast, idle, config }) {
 		this.#store = store;
@@ -53,7 +54,6 @@ export class ScreenController {
 		this.#toast = toast;
 		this.#idle = idle;
 		this.#config = config;
-		this.#idle.addEventListener('activity', () => this.apply()); // wake at once
 	}
 
 	/** Asks the server whether the backlight can be used, and uses it if so. */
@@ -62,7 +62,7 @@ export class ScreenController {
 		this.apply();
 	}
 
-	/** Called every second (and on every touch, and when the sleep time changes). */
+	/** Called every second, on every touch (app_controller.js), and when the sleep time changes. */
 	apply(now = new Date()) {
 		const { brightness, screen, sleepTime } = this.#store.settings;
 		const sleeping = isInTimeRange(now, sleepTime.from, sleepTime.until);
@@ -73,7 +73,9 @@ export class ScreenController {
 		if (this.#backlight) {
 			this.#sendBacklight({ brightness: Math.max(LOWEST_BACKLIGHT, dimmed ? 1 - dimLevel : 1), on: !blank });
 		}
-		this.#shade.show({ dim: dimmed && !this.#backlight ? dimLevel : 0, blank });
+		const dim = dimmed && !this.#backlight ? dimLevel : 0;
+		this.#shade.show({ dim, blank });
+		rememberLook({ dim }); // for the next load's first look (first_look.js)
 		this.#buttons.brightness.show(brightness, choiceLabel('brightness', brightness));
 		this.#buttons.screen.show(screen, choiceLabel('screen', screen));
 		// The screen button's border counts down to going black (only while it may).
@@ -84,16 +86,17 @@ export class ScreenController {
 	/** The brightness button: the next setting, and a toast saying which. */
 	nextBrightness() {
 		const setting = this.#next('brightness');
-		const note = setting === 'auto' ? ` (dim ${this.#sleepTimeText()})` : '';
-		this.#toast.show(`Brightness: ${choiceLabel('brightness', setting)}${note}`, { duration: this.#config.toastMs.short });
+		const note = setting === 'auto' ? ` (dim ${timeRangeText(this.#store.settings.sleepTime)})` : '';
+		this.#toast.show(`Brightness: ${choiceLabel('brightness', setting)}${note}`, { duration: 'short' });
 	}
 
 	/** The screen button: the next setting, and a toast saying which. */
 	nextScreen() {
 		const setting = this.#next('screen');
 		const idle = `off after ${Math.round(this.#config.screen.offAfterMs / 60000)} min without a touch`;
-		const note = setting === 'idle' ? ` (${idle})` : setting === 'auto' ? ` (${idle}, ${this.#sleepTimeText()})` : '';
-		this.#toast.show(`Screen: ${choiceLabel('screen', setting)}${note}`, { duration: this.#config.toastMs.normal });
+		const sleep = timeRangeText(this.#store.settings.sleepTime);
+		const note = setting === 'idle' ? ` (${idle})` : setting === 'auto' ? ` (${idle}, ${sleep})` : '';
+		this.#toast.show(`Screen: ${choiceLabel('screen', setting)}${note}`);
 	}
 
 	/** Sends the backlight's state if it changed; if that fails, the page darkens itself from then on. */
@@ -115,12 +118,6 @@ export class ScreenController {
 		this.apply();
 		this.#store.save();
 		return setting;
-	}
-
-	/** "22:00–07:00" */
-	#sleepTimeText() {
-		const { from, until } = this.#store.settings.sleepTime;
-		return `${from}–${until}`;
 	}
 
 	/** Picks the page's position from the time, so it changes every `shiftEveryMinutes`. */

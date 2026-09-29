@@ -39,7 +39,7 @@ export class TimePicker extends Sheet {
 	 * @param {{from: string, until: string}} [request.limit] Only times in this range (both ends included).
 	 * @param {Element} [request.origin]
 	 * @param {(time: string) => void} request.onPick
-	 * @param {() => void} request.onCancel
+	 * @param {() => void} [request.onCancel] Default: just close.
 	 */
 	pick(request) {
 		this.#request = request;
@@ -69,6 +69,7 @@ export class TimePicker extends Sheet {
 	}
 
 	#cancel() {
-		this.#request?.onCancel();
+		if (this.#request?.onCancel) this.#request.onCancel();
+		else this.close();
 	}
 }

@@ -9,6 +9,7 @@
 	padding: 1.25rem 2.25rem;
 	border: .25rem solid var(--text-soft);
 	border-radius: 1.5rem;
+	--timeout-color: var(--text-soft); /* the outline counts down to when it goes (toast.js) */
 	background: var(--page); /* reads as "no fill", but stays legible over cards */
 	color: var(--text);
 	font-size: 1.75rem;
@@ -35,7 +36,13 @@
 }
 
 .toast.showing {
-	animation: pop-in .5s var(--spring) both;
+	animation: toast-in .5s var(--spring) both;
+}
+
+/* Popping up, free to grow past its edges (it's on its own, over everything). */
+@keyframes toast-in {
+	from { transform: scale(.6) translateY(1.25rem); opacity: 0; }
+	to   { transform: none; opacity: 1; }
 }
 
 /* On the way out: a little hop, then it tips over and drops off the screen. */

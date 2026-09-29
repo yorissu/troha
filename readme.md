@@ -17,14 +17,16 @@ python3 server.py
 
 Open <http://127.0.0.1:8080>. Stop the server with Ctrl+C. To use another port, set `TROHA_PORT` first, e.g. `TROHA_PORT=9000 python3 server.py`.
 
+If the server stops answering, the page stops taking changes at once: a pop-up covers everything, the change that couldn't be saved is undone, and nothing can be changed until the server is back. The pop-up can't be closed; as soon as the server answers again, the page reloads by itself. On the Pi the server is started again automatically (see below), within a few seconds, also if it gets stuck. Elsewhere, start `server.py` again yourself.
+
 Your habits are saved in the `data` folder, in `data/habits.json` to begin with. Copy the folder to back them up. You can keep several data files there and switch between them in **Settings → Data file**. (An older `habits.json` next to `server.py` is moved into `data` by itself.)
 
 ## Using Troha
 
 - **Today** shows today's habits. Tap one to tick it off, tap again to untick. Tick them all for a small celebration.
 - **Calendar** shows a ring for each day: how much got done. The **eraser** button lets you tap days to remove their counters; tap it again, leave the Calendar, or wait 10 seconds to stop.
-- **Manage** lists all habits. Tap one to edit or delete it.
-- **Undo**: after deleting a habit or clearing days, the message at the bottom offers *Undo* for a few seconds.
+- **Manage** shows every habit as a card: its name, its week (a bar for each weekday, filled on the days it's on), and small tags for anything unusual, like *every 2 weeks*, a later start, or *private*. Tap one to edit or delete it.
+- **Undo**: after deleting a habit or clearing days, the message at the bottom offers *Undo* for a few seconds. (Every message's outline counts down to when it goes.)
 - **+** adds a habit: name, days, repeat (every 1–4 weeks), start date, colour, and whether it's private.
 - **Private habits** show as blank bars until you log in with your PIN (lock button, top right). The first tap on the lock button sets up the PIN. You're logged out after a minute without a touch. A forgotten PIN can only be reset, which deletes all private habits.
 - **The three round buttons under the clock** each step through three settings:
@@ -32,6 +34,7 @@ Your habits are saved in the `data` folder, in `data/habits.json` to begin with.
 	- **Brightness**: Bright, Dim, Auto (dim during the sleep time).
 	- **Screen**: Always on; Off when idle (black after 2 minutes without a touch); Auto (the same, but only during the sleep time). While the screen may go black, the button's border counts down to it. A tap wakes the screen and does nothing else.
 - **Settings** (gear button, top right). Changes apply right away; no PIN needed.
+	- **Tutorial**: *Take the tour* walks you through Troha in about a minute: setting a PIN, each view (lit up with its button), every button, and a hint about the easter eggs. Everything else is dimmed and can't be tapped while it runs (only the PIN pad, while you set a PIN); *Skip tour* ends it.
 	- **Data file**: which file in the `data` folder your habits, ticks and settings live in. Type to search the files, tap one to use it, or type a new name and tap *Create* for a fresh start. The bin button deletes a file for good (after asking; not the one in use). Each file has its own habits, settings and PIN.
 	- **Night and sleep**: the night (left) is when the Auto theme turns dark; the sleep time (right) is when Auto brightness dims and the Auto screen goes off when idle. Sleep always lies within the night: the clock only offers times inside it. Tap a time to change it on the clock.
 	- **Date and time**: the date and the time are always on show. Tap either to set it yourself (calendar or clock), or tap *Get from the network*. (Only changes the Pi's clock, once set up as below; elsewhere it can be tried out, but the clock stays as it is.)
@@ -49,7 +52,7 @@ On a Raspberry Pi touch display, dimming turns the backlight down and "screen of
 	sh /home/pi/troha/pi/install.sh
 	```
 	It sets up:
-	- the server as a service (`troha.service`), started at boot and again whenever it stops;
+	- the server as a service (`troha.service`), started at boot and again whenever it stops (a server that gets stuck stops itself, so it's started afresh too);
 	- Chromium, full-screen, started with the desktop (Raspberry Pi OS Bookworm's labwc desktop) and again whenever it closes. The mouse pointer is hidden;
 	- permission to set the clock (Settings → *Date and time*) and to dim and switch off the backlight;
 	- the system's own screen blanking off (Troha switches the screen off itself).
@@ -81,14 +84,15 @@ The page is plain HTML, CSS and JavaScript modules, organised as model-view-cont
 | --- | --- |
 | `web/config.js` | Settings |
 | `web/messages.js` | What Troha says: the remarks it picks from |
-| `web/core/` | Shared helpers: dates, schedule rules, DOM helpers, text (incl. the random-remark picker), fuzzy search, clock, idle timer, taps (one touch = one tap), crypto |
+| `web/first_look.js` | Runs before the page is drawn: last time's theme and dimness, so a reload doesn't flash |
+| `web/core/` | Shared helpers: dates, schedule rules, DOM helpers, text (incl. the random-remark picker), fuzzy search, clock, idle timer, taps (one touch = one tap, and counting quick taps), crypto |
 | `web/models/` | Data and rules: habits, the daily log, settings, logging in, talking to the server |
 | `web/views/` | The UI components, one folder each (its `.js`, and its `.css` if it needs its own styles), grouped: `base/`, `controls/`, `frame/` (sidebar and header), `pages/`, `sheets/` (pop-ups) and `overlays/` |
 | `web/controllers/` | Connect models and views; `app_controller.js` wires everything |
 | `web/styles/` | Shared styles: fonts, colours (`tokens.css`), basics, animations, controls, layout |
-| `web/assets/` | Fonts and the icon sprite |
+| `web/assets/` | Fonts, the icon sprite, and Troha's own icon (`app_icon.svg`, shown in the browser tab) |
 | `server.py` | Starts the local server |
-| `backend/` | The server's parts: data files, clock, backlight, web requests |
+| `backend/` | The server's parts: data files, clock, backlight, web requests, and its check on itself |
 | `data/` | Your data files (not stored in git) |
 | `pi/` | Raspberry Pi setup: `install.sh` and `uninstall.sh`, the `troha.service` service, `kiosk.sh` (Chromium full-screen), and the clock and backlight permissions |
 
@@ -105,14 +109,15 @@ Component                 root element (base/component)
 │       ├── LockButton
 │       └── ClearButton
 ├── PillRow               a row of choice pills
+├── TextField             a text field for the on-screen keyboard; marks itself when something's missing
 ├── MonthBar              ‹ month › (Calendar and date picker), with weekdayRow()
 ├── ClockDial             round 24-hour clock face: hours outside, minutes inside
 ├── TimeoutRing           turns a button's border into a countdown
 ├── Sidebar, Header                                          (frame/)
 ├── TodayView, HabitCard, CalendarView, ManageView, SettingsView  (pages/)
-├── Toast, Confetti, NightShade, OnScreenKeyboard            (overlays/)
+├── Toast, Confetti, NightShade, OnScreenKeyboard, ServerDown, Tour (overlays/)
 ├── SheetHost             the overlay that shows one pop-up at a time (base/sheet)
-└── Sheet                 pop-up base (base/sheet)
+└── Sheet                 pop-up base; with onSubmit it is a form (base/sheet)
 	└── ConfirmSheet, PinPad, DatePicker, TimePicker, FilePicker, HabitEditor  (sheets/)
 ```
 

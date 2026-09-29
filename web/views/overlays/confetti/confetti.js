@@ -15,11 +15,15 @@ export class Confetti extends Component {
 		this.#colors = colors;
 	}
 
-	burst(count = 80) {
+	/**
+	 * @param {string[]} [colors] Habit colour names for this burst (default: all of them).
+	 * @param {number} [count] How many pieces.
+	 */
+	burst(colors = this.#colors, count = 80) {
 		const { width, height } = this.element.getBoundingClientRect();
 		for (let i = 0; i < count; i++) {
 			const piece = h('span', {
-				className: `confetti-piece c-${this.#colors[i % this.#colors.length]}${i % 3 === 0 ? ' round' : ''}`,
+				className: `confetti-piece c-${colors[i % colors.length]}${i % 3 === 0 ? ' round' : ''}`,
 				style: { left: `${width * (0.25 + Math.random() * 0.72)}px`, top: `${height + 20}px` },
 			});
 			this.element.append(piece);

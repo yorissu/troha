@@ -4,17 +4,21 @@
  * a faint track, and a line along it empties as time runs out, starting from the
  * top centre.
  *
- * Any button can have one (TimeoutButton does; so does the round Screen button).
- * It measures the element's real size and corner radius, so it fits any shape:
- * square, pill or round. The element's CSS sets the colour with --timeout-color.
+ * Any element can have one (TimeoutButton does; so do the round Screen button and
+ * the toast). It measures the element's real size and corner radius, so it fits any
+ * shape: square, pill or round. The element's CSS sets the colour with --timeout-color.
+ *
+ * Its owner either sets how much time is left now and then (setTimeLeft), or lets
+ * it count down by itself (run).
  */
 
-import { svg } from '../../../core/dom.js';
+import { prefersReducedMotion, svg } from '../../../core/dom.js';
 import { Component } from '../../base/component/component.js';
 
 export class TimeoutRing extends Component {
 	#host;
 	#path = svg('path', { class: 'timeout-fill', pathLength: '1' });
+	#countdown = null; // the running animation while it counts down by itself (run)
 
 	/** @param {HTMLElement} host The element whose border becomes the countdown. */
 	constructor(host) {
@@ -31,11 +35,26 @@ export class TimeoutRing extends Component {
 	 * @param {number|null} fraction
 	 */
 	setTimeLeft(fraction) {
+		this.#countdown?.cancel();
+		this.#countdown = null;
 		this.element.toggleAttribute('hidden', fraction === null); // an SVG element has no .hidden
 		this.#host.classList.toggle('timing', fraction !== null);
 		if (fraction === null) return;
 		// Set on the path itself: Chrome doesn't redraw it when an inherited variable changes.
 		this.#path.style.strokeDashoffset = (1 - fraction).toFixed(4);
+	}
+
+	/**
+	 * Counts down by itself, from full to empty over `durationMs`: smoothly, or (with
+	 * less motion) a step each second, like the countdowns that setTimeLeft() moves.
+	 * @param {number} durationMs
+	 */
+	run(durationMs) {
+		this.setTimeLeft(1);
+		const easing = prefersReducedMotion() ? `steps(${Math.max(1, Math.round(durationMs / 1000))}, end)` : 'linear';
+		this.#countdown = this.#path.animate(
+			[{ strokeDashoffset: 0 }, { strokeDashoffset: 1 }],
+			{ duration: durationMs, easing, fill: 'forwards' });
 	}
 
 	/** Draws the line exactly on the border: a rounded rectangle starting at the top centre. */

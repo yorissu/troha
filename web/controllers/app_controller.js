@@ -9,7 +9,7 @@ import { Clock } from '../core/clock.js';
 import { IdleTimer } from '../core/idle_timer.js';
 import { weekdayNames } from '../core/dates.js';
 import { h } from '../core/dom.js';
-import { dataFileName, FILE_NAME } from '../models/api.js';
+import { dataFileName, FILE_NAME, ServerLost } from '../models/api.js';
 import { CHOICES } from '../models/settings.js';
 import { messages } from '../messages.js';
 import { say } from '../core/text.js';
@@ -37,11 +37,16 @@ import { OnScreenKeyboard } from '../views/overlays/on_screen_keyboard/on_screen
 import { Toast } from '../views/overlays/toast/toast.js';
 import { Confetti } from '../views/overlays/confetti/confetti.js';
 import { NightShade } from '../views/overlays/night_shade/night_shade.js';
+import { ServerDown } from '../views/overlays/server_down/server_down.js';
+import { Tour } from '../views/overlays/tour/tour.js';
 import { HabitController } from './habit_controller.js';
 import { SessionController } from './session_controller.js';
 import { ThemeController } from './theme_controller.js';
 import { ScreenController } from './screen_controller.js';
 import { SettingsController } from './settings_controller.js';
+import { ServerController } from './server_controller.js';
+import { PlayfulController } from './playful_controller.js';
+import { TourController } from './tour_controller.js';
 
 const SWITCHED_HASH = '#switched'; // set just before reloading onto another data file
 
@@ -50,7 +55,7 @@ export class AppController {
 	#clock = new Clock();
 	#idle = new IdleTimer();
 	#privateNames = new PrivateNames();
-	#toast = new Toast();
+	#toast = new Toast({ durations: config.toastMs });
 	#store;
 	#session;
 	#sheets = new SheetHost();
@@ -59,6 +64,9 @@ export class AppController {
 	#theme;
 	#screen;
 	#settings;
+	#server;
+	#playful;
+	#tour;
 	#header;
 	#view = 'today';
 
@@ -67,28 +75,34 @@ export class AppController {
 		this.#stage = stage;
 		this.#store = new HabitStore({
 			privateNames: this.#privateNames,
-			onSaveError: (error) => this.#toast.show(error.reason === 'other-file'
-				? 'Another data file is in use now. Reload the page to see it.'
-				: "Couldn't save. Is server.py running?"),
+			onSaveError: (error) => {
+				if (error.reason === 'lost') return; // the server-down pop-up says so
+				const message = error.reason === 'other-file'
+					? 'Another data file is in use now. Reload the page to see it.'
+					: "Couldn't save the data file.";
+				this.#toast.show(message, { duration: 'long' });
+			},
 		});
 		this.#session = new Session({ store: this.#store, privateNames: this.#privateNames, pinConfig: config.pin });
 		this.#build();
 	}
 
-	/** Loads the data (retrying until the server answers), then starts. */
+	/** Loads the data (retrying if the server can't read it), then starts. */
 	async start() {
+		this.#server.start();
 		try {
 			await this.#store.load();
 		} catch (error) {
+			if (error instanceof ServerLost) return; // the server-down pop-up takes over, and reloads once it's back
 			console.error(error);
-			this.#toast.show("Can't load your habits. Is server.py running? Retrying…", { sticky: true });
+			this.#toast.show("Can't read your habits. Retrying…", { sticky: true });
 			setTimeout(() => this.start(), config.timing.loadRetryMs);
 			return;
 		}
 		this.#toast.hide();
 		if (location.hash === SWITCHED_HASH) {
 			history.replaceState(null, '', location.pathname + location.search); // keeps ?kiosk
-			this.#toast.show(`Now using “${dataFileName()}”`, { duration: config.toastMs.normal });
+			this.#toast.show(`Now using “${dataFileName()}”`);
 		}
 		this.#settings.applyMotion();
 		this.#theme.apply();
@@ -99,8 +113,12 @@ export class AppController {
 		this.#showView('today');
 
 		this.#clock.addEventListener('tick', (event) => this.#tick(event.detail.now));
-		this.#idle.addEventListener('activity', () => this.#habits.tick()); // refill the Clear timer at once
+		this.#idle.addEventListener('activity', () => {
+			this.#screen.apply(); // wake at once
+			this.#habits.tick();  // refill the Clear timer at once
+		});
 		this.#clock.addEventListener('daychange', () => {
+			this.#tour.stop(); // a new day starts on Today, tour or not
 			this.#sheets.close();
 			this.#habits.startDay();
 			this.#showView('today');
@@ -144,7 +162,10 @@ export class AppController {
 			playful: config.playful,
 			heyRemarks: messages.hey,
 		});
-		const manage = new ManageView({ onRowTap: (id, row) => this.#habits.tapRow(id, row) });
+		const manage = new ManageView({
+			dayLetters: weekdayNames(config.locale, 'narrow'),
+			onCardTap: (id, card) => this.#habits.tapManageCard(id, card),
+		});
 		const settingsView = new SettingsView({
 			locale: config.locale,
 			onPickRangeTime: (range, which, element) => this.#settings.pickRangeTime(range, which, element),
@@ -154,6 +175,7 @@ export class AppController {
 			onPickFile: (element) => this.#settings.pickFile(element),
 			motionChoices: CHOICES.motion,
 			onPickMotion: (choice) => this.#settings.pickMotion(choice),
+			onStartTour: () => this.#tour.start(),
 		});
 		const keyboard = new OnScreenKeyboard();
 		const datePicker = new DatePicker(sheets, { locale: config.locale, dayNames });
@@ -172,7 +194,9 @@ export class AppController {
 			onAdd: (fields) => this.#habits.added(fields),
 			onChange: (habit, fields) => this.#habits.changed(habit, fields),
 			onDelete: (habit, element) => this.#habits.askDelete(habit, element),
-			onNeedLogin: (element) => this.#sessions.requireLogin(element, () => editor.choosePrivate(element)),
+			onNeedLogin: (element) => this.#sessions.requireLogin(element,
+				() => editor.choosePrivate(element),
+				() => editor.reopen(element)), // cancelled: back to the editor, as it was
 		});
 		const confirm = new ConfirmSheet(sheets);
 		const logoutConfirm = new ConfirmSheet(sheets);
@@ -180,14 +204,17 @@ export class AppController {
 			session: this.#session,
 			limits: config.pin,
 			remarks: { wrongPin: messages.wrongPin, niceTry: messages.niceTry },
-			onDone: (how) => this.#toast.show(say(how === 'set' ? messages.pinSet : messages.loggedIn), { duration: config.toastMs.short }),
+			onDone: (how) => this.#toast.show(say(how === 'set' ? messages.pinSet : messages.loggedIn), { duration: 'short' }),
 			onForgot: (element) => this.#sessions.forgot(element),
 		});
 		const confetti = new Confetti({ colors: config.colors });
 		const shade = new NightShade({ onWake: () => this.#idle.touch() });
+		const serverDown = new ServerDown();
+		const tour = new Tour({ onNext: () => this.#tour.next(), onBack: () => this.#tour.back(), onSkip: () => this.#tour.skip() });
 
 		// Controllers
-		this.#theme = new ThemeController({ store: this.#store, button: themeButton, toast: this.#toast, toastMs: config.toastMs });
+		this.#server = new ServerController({ dialog: serverDown, timing: config.timing });
+		this.#theme = new ThemeController({ store: this.#store, button: themeButton, toast: this.#toast });
 		this.#screen = new ScreenController({
 			store: this.#store,
 			stage: this.#stage,
@@ -206,12 +233,37 @@ export class AppController {
 			confirm,
 			toast: this.#toast,
 			clock: this.#clock,
-			toastMs: config.toastMs,
 			onTimeRangeChange: () => {
 				this.#theme.apply();
 				this.#screen.apply();
 			},
 			onFileChange: () => this.#restartWithNewFile(),
+		});
+		this.#playful = new PlayfulController({ playful: config.playful, sidebar, toast: this.#toast });
+		this.#tour = new TourController({
+			tour,
+			app: {
+				showView: (view) => this.#showView(view),
+				idle: this.#idle,
+				sheets,
+				session: this.#session,
+				requireLogin: (origin, then, onCancel) => this.#sessions.requireLogin(origin, then, onCancel),
+				header: this.#header,
+				confetti,
+				elements: {
+					lock: lockButton.element,
+					pinPad: pinPad.element,
+					today: today.element,
+					calendar: calendar.element,
+					manage: manage.element,
+					settings: settingsView.element,
+					theme: themeButton.element,
+					brightness: brightnessButton.element,
+					screen: screenButton.element,
+					dayNumber: sidebar.dayNumber,
+					clock: sidebar.clock,
+				},
+			},
 		});
 		this.#habits = new HabitController({
 			store: this.#store,
@@ -222,6 +274,7 @@ export class AppController {
 			views: { sidebar, today, calendar, manage, editor, confirm, toast: this.#toast, confetti },
 			requireLogin: (origin, then) => this.#sessions.requireLogin(origin, then),
 			isLoggedIn: () => this.#session.loggedIn,
+			playful: this.#playful,
 		});
 		this.#sessions = new SessionController({
 			session: this.#session,
@@ -234,11 +287,11 @@ export class AppController {
 			logoutConfirm,
 			toast: this.#toast,
 			timing: config.timing,
-			toastMs: config.toastMs,
 			onChange: (loggedIn) => this.#habits.privacyChanged(loggedIn),
 		});
 
-		// Layout: sidebar | main; pop-ups, keyboard, confetti and toasts on top; the night shade over everything.
+		// Layout: sidebar | main; pop-ups, keyboard, confetti and toasts on top; then the tour, which
+		// covers all of them; the server-down pop-up over that; the night shade over everything.
 		this.#stage.append(
 			sidebar.element,
 			h('main', { className: 'main' }, this.#header.element, today.element, calendar.element, manage.element, settingsView.element),
@@ -246,6 +299,8 @@ export class AppController {
 			keyboard.element,
 			confetti.element,
 			this.#toast.element,
+			tour.element,
+			serverDown.element,
 			shade.element);
 	}
 
@@ -266,9 +321,10 @@ export class AppController {
 		else this.#settings.hide();
 	}
 
-	/** Every second: clock, theme, screen care, login timers, clear mode, and back to Today when idle. */
+	/** Every second: clock, theme, screen care, login timers, clear mode, easter eggs, and back to Today when idle. */
 	#tick(now) {
 		this.#habits.showTime(now);
+		this.#playful.tick(now);
 		this.#settings.tick(now);
 		this.#theme.apply(now);
 		this.#screen.apply(now);

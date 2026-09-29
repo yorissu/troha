@@ -22,10 +22,10 @@
 	border-radius: 2.125rem;
 	background: var(--c-fill);
 	color: var(--c-text);
+	/* Kept on its own layer: otherwise, at a fractional position, the icon jumps by a
+	   fraction of a pixel when the squish ends and the browser snaps it back to whole pixels. */
+	will-change: transform;
 }
-/* Kept on its own layer: otherwise, at a fractional position, the icon jumps by a
-   fraction of a pixel when the squish ends and the browser snaps it back to whole pixels. */
-.icon-button { will-change: transform; }
 .icon-button .icon { width: 3rem; height: 3rem; }
 .icon-button.active { border-color: var(--c-edge); }
 .icon-button.small { width: 4.5rem; height: 4.5rem; border-radius: 1.5rem; }

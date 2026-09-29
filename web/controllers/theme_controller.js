@@ -4,27 +4,25 @@
  * Sets data-theme on <html>; styles/tokens.css does the rest.
  */
 
-import { isInTimeRange } from '../core/dates.js';
+import { isInTimeRange, timeRangeText } from '../core/dates.js';
+import { rememberLook } from '../core/look_memory.js';
 import { choiceLabel, nextChoice } from '../models/settings.js';
 
 export class ThemeController {
 	#store;
 	#button;
 	#toast;
-	#toastMs;
 
 	/**
 	 * @param {object} options
 	 * @param {import('../models/habit_store.js').HabitStore} options.store Holds the setting and the night time.
 	 * @param {import('../views/controls/theme_button/theme_button.js').ThemeButton} options.button
 	 * @param {import('../views/overlays/toast/toast.js').Toast} options.toast
-	 * @param {{short: number}} options.toastMs How long toasts stay.
 	 */
-	constructor({ store, button, toast, toastMs }) {
+	constructor({ store, button, toast }) {
 		this.#store = store;
 		this.#button = button;
 		this.#toast = toast;
-		this.#toastMs = toastMs;
 	}
 
 	/** Applies the saved setting (for Auto, depending on the time of `now`). */
@@ -33,6 +31,7 @@ export class ThemeController {
 		const night = isInTimeRange(now, nightTime.from, nightTime.until);
 		const theme = setting === 'auto' ? (night ? 'dark' : 'light') : setting;
 		if (document.documentElement.dataset.theme !== theme) document.documentElement.dataset.theme = theme;
+		rememberLook({ theme }); // for the next load's first look (first_look.js)
 		this.#button.show(setting, choiceLabel('theme', setting));
 	}
 
@@ -43,8 +42,7 @@ export class ThemeController {
 		this.apply();
 		this.#store.save();
 
-		const { from, until } = settings.nightTime;
-		const note = setting === 'auto' ? ` (dark ${from}–${until})` : '';
-		this.#toast.show(`Theme: ${choiceLabel('theme', setting)}${note}`, { duration: this.#toastMs.short });
+		const note = setting === 'auto' ? ` (dark ${timeRangeText(settings.nightTime)})` : '';
+		this.#toast.show(`Theme: ${choiceLabel('theme', setting)}${note}`, { duration: 'short' });
 	}
 }

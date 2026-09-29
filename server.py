@@ -20,6 +20,7 @@ from pathlib import Path
 from backend import display
 from backend.data_files import DataFiles
 from backend.http_handler import create_server
+from backend.self_check import start_self_check
 
 
 HOST = "127.0.0.1"
@@ -57,6 +58,7 @@ def main():
 
 	print(f"Troha is running at http://{HOST}:{port}  (Ctrl+C to stop), using {data_dir / data_files.in_use()}.json")
 	sys.stdout.flush()
+	start_self_check(f"http://{HOST}:{port}/api/health")
 	try:
 		server.serve_forever()
 	except KeyboardInterrupt:

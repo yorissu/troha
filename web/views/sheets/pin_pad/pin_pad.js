@@ -11,8 +11,9 @@
  * Wrong PINs shake the dots; after too many, the pad waits with a countdown (the
  * Session decides; the pad shows it). A physical keyboard works too.
  *
- * Easter egg: 0000 can't be set as a PIN; tried at login, the dots wobble and say
- * something cheeky (and it doesn't count as a wrong try).
+ * Easter egg: 0000 can't be set as a PIN; tried at login (as the whole PIN), the dots
+ * wobble and say something cheeky (and it doesn't count as a wrong try). A longer PIN
+ * that starts with 0000 is typed like any other.
  */
 
 import { h, icon, replayAnimation } from '../../../core/dom.js';
@@ -42,7 +43,8 @@ export class PinPad extends Sheet {
 	#entry = '';
 	#first = '';
 	#checking = false;
-	#then = null;
+	#then = null;     // after logging in
+	#onCancel = null; // if cancelled instead
 
 	/**
 	 * @param {import('../../base/sheet/sheet.js').SheetHost} host
@@ -81,7 +83,7 @@ export class PinPad extends Sheet {
 		});
 
 		this.#forgot = new Button({ className: 'button link', label: 'Forgot PIN?', onTap: (element) => this.#onForgot(element) });
-		this.#cancel = new Button({ className: 'button', label: 'Cancel', onTap: () => this.close() });
+		this.#cancel = new Button({ className: 'button', label: 'Cancel', onTap: () => this.#dismiss() });
 		this.element.append(this.#title, this.#note, this.#dots, this.#keypad,
 			h('div', { className: 'sheet-actions pin-actions' }, this.#forgot.element, this.#cancel.element));
 
@@ -90,25 +92,25 @@ export class PinPad extends Sheet {
 			if (/^[0-9]$/.test(event.key)) this.#type(event.key);
 			else if (event.key === 'Backspace') this.#backspace();
 			else if (event.key === 'Enter' && this.#needsConfirming) this.#submit();
-			else if (event.key === 'Escape') this.close();
+			else if (event.key === 'Escape') this.#dismiss();
 		});
 	}
 
 	/**
 	 * Makes sure the user is logged in, then runs `then`.
 	 * Asks for the PIN (or to set one up) if needed.
-	 * @param {{origin?: Element, then?: () => void}} [options]
+	 * @param {{origin?: Element, then?: () => void, onCancel?: () => void}} [options]
+	 *   onCancel: the pad was cancelled instead (Cancel, Escape, or a tap beside it).
 	 */
-	ask({ origin, then } = {}) {
+	ask({ origin, then, onCancel } = {}) {
 		if (this.#session.loggedIn) {
 			then?.();
 			return;
 		}
 		this.#mode = this.#session.hasPin ? 'login' : 'set';
-		this.#step = 1;
-		this.#entry = '';
-		this.#first = '';
+		this.#startOver();
 		this.#then = then ?? null;
+		this.#onCancel = onCancel ?? null;
 		this.#render();
 		this.open(origin);
 	}
@@ -124,9 +126,39 @@ export class PinPad extends Sheet {
 		if (this.isOpen && this.#session.lockoutCountingDown) this.#render();
 	}
 
+	onOutsideTap() {
+		this.#dismiss();
+	}
+
 	onHide() {
+		this.#startOver();
+		this.#then = null;
+		this.#onCancel = null;
+	}
+
+	/** Cancelled: closes, then lets whoever asked go back (onCancel). */
+	#dismiss() {
+		const onCancel = this.#onCancel;
+		this.close();
+		onCancel?.();
+	}
+
+	/** Back to an empty first step (nothing typed, nothing to repeat). */
+	#startOver() {
+		this.#step = 1;
 		this.#entry = '';
 		this.#first = '';
+	}
+
+	/** True while typing must wait: a PIN is being checked or saved, or during a lockout. */
+	get #busy() {
+		return this.#checking || this.#session.lockoutSecondsLeft > 0;
+	}
+
+	/** Clears what was typed and plays `animation` on the dots ('shake' or 'nice-try'). */
+	#reject(animation) {
+		this.#entry = '';
+		replayAnimation(this.#dots, animation, DOT_ANIMATIONS);
 	}
 
 	/** True while the PIN needs a key to confirm it (setting one, or a PIN of unknown length). */
@@ -165,28 +197,25 @@ export class PinPad extends Sheet {
 
 	#tapCorner() {
 		if (this.#needsConfirming) this.#submit();
-		else this.close();
+		else this.#dismiss();
 	}
 
 	/** A digit. Once the PIN is long enough to check, it's checked by itself. */
 	#type(digit) {
-		if (this.#checking || this.#session.lockoutSecondsLeft) return;
-		if (this.#entry.length >= this.#limits.maxLength) return;
+		if (this.#busy || this.#entry.length >= this.#limits.maxLength) return;
 		this.#entry += digit;
 		this.#render();
-		const complete = this.#entry.length === this.#expectedLength;
-		const joke = this.#mode === 'login' && !this.#session.isAllowedPin(this.#entry); // 0000: always answered
-		if (complete || joke) this.#submit();
+		if (this.#entry.length === this.#expectedLength) this.#submit();
 	}
 
 	#backspace() {
-		if (this.#checking || this.#session.lockoutSecondsLeft) return;
+		if (this.#busy) return;
 		this.#entry = this.#entry.slice(0, -1);
 		this.#render();
 	}
 
 	async #submit() {
-		if (this.#checking || this.#session.lockoutSecondsLeft) return;
+		if (this.#busy) return;
 		if (this.#entry.length < this.#limits.minLength) {
 			this.#render(`Use at least ${this.#limits.minLength} digits`);
 			return;
@@ -196,39 +225,25 @@ export class PinPad extends Sheet {
 			return;
 		}
 
-		this.#checking = true;
-		this.#render('Checking…');
-		let result;
-		try {
-			result = await this.#session.login(this.#entry);
-		} catch (error) {
-			console.error(error);
-			this.#checking = false;
-			this.#entry = '';
-			this.#render("Couldn't check the PIN. Try again");
-			return;
-		} finally {
-			this.#checking = false;
-		}
+		const result = await this.#whileChecking('Checking…', () => this.#session.login(this.#entry));
 		if (result === 'ok') {
 			this.#finish('login');
-			return;
-		}
-		this.#entry = '';
-		if (result === 'nice-try') {
-			replayAnimation(this.#dots, 'nice-try', DOT_ANIMATIONS);
+		} else if (result === 'nice-try') {
+			this.#reject('nice-try');
 			this.#render(say(this.#remarks.niceTry));
-			return;
+		} else if (result === 'wrong') {
+			this.#reject('shake');
+			this.#render(say(this.#remarks.wrongPin));
+		} else {
+			this.#entry = '';
+			this.#render("Couldn't check the PIN. Try again");
 		}
-		replayAnimation(this.#dots, 'shake', DOT_ANIMATIONS);
-		this.#render(say(this.#remarks.wrongPin));
 	}
 
 	async #submitNewPin() {
 		if (this.#step === 1) {
 			if (!this.#session.isAllowedPin(this.#entry)) {
-				this.#entry = '';
-				replayAnimation(this.#dots, 'shake', DOT_ANIMATIONS);
+				this.#reject('shake');
 				this.#render('Too easy to guess. Pick another PIN');
 				return;
 			}
@@ -239,34 +254,39 @@ export class PinPad extends Sheet {
 			return;
 		}
 		if (this.#entry !== this.#first) {
-			this.#step = 1;
-			this.#entry = '';
-			this.#first = '';
-			replayAnimation(this.#dots, 'shake', DOT_ANIMATIONS);
+			this.#startOver();
+			this.#reject('shake');
 			this.#render("PINs didn't match. Start again");
 			return;
 		}
-		this.#checking = true;
-		this.#render('Saving…');
-		try {
-			await this.#session.setPin(this.#entry);
-		} catch (error) {
-			console.error(error);
-			this.#checking = false;
-			this.#step = 1;
-			this.#entry = '';
-			this.#first = '';
+		const result = await this.#whileChecking('Saving…', () => this.#session.setPin(this.#entry));
+		if (result === 'error') {
+			this.#startOver();
 			this.#render("Couldn't set the PIN. Try again");
 			return;
-		} finally {
-			this.#checking = false;
 		}
 		this.#finish('set');
 	}
 
+	/**
+	 * Runs `work` (checking or saving a PIN) while the keypad waits and `message` shows.
+	 * @returns {Promise<any>} What `work` returned, or 'error' if it failed.
+	 */
+	async #whileChecking(message, work) {
+		this.#checking = true;
+		this.#render(message);
+		try {
+			return await work();
+		} catch (error) {
+			console.error(error);
+			return 'error';
+		} finally {
+			this.#checking = false; // before the caller shows the outcome, so the keypad is back
+		}
+	}
+
 	#finish(how) {
 		const then = this.#then;
-		this.#then = null;
 		this.close();
 		this.#onDone(how);
 		then?.();

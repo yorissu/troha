@@ -19,7 +19,7 @@ const PREFIX = 10;
  * @returns {{score: number, indexes: number[]}|null} null if it doesn't match;
  *   `indexes` are the matched letters' positions in `text` (for highlighting).
  */
-export function fuzzyMatch(query, text) {
+function fuzzyMatch(query, text) {
 	const needle = query.toLowerCase();
 	const haystack = text.toLowerCase();
 	if (!needle) return { score: 0, indexes: [] };

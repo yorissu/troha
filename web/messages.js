@@ -147,6 +147,54 @@ export const messages = {
 		'Nice try, sneaky',
 	],
 
+	/* ---------- Easter eggs that go by the clock (see controllers/playful_controller.js) ---------- */
+
+	/** At 11:11 and 22:22 (time: e.g. "11:11"). */
+	wish: [
+		(time) => `${time}, make a wish`,
+		(time) => `${time}! Quick, make a wish`,
+		(time) => `It’s ${time}. Wish away`,
+		(time) => `${time}: wishing time`,
+		(time) => `Look, ${time}. Make it a good one`,
+		(time) => `${time}. Close your eyes and wish`,
+	],
+	/** A habit ticked in the small hours (once a night). */
+	nightOwl: [
+		'Shouldn’t you be asleep?',
+		'Burning the midnight oil?',
+		'Ticked. Now go to bed',
+		'Night owl spotted',
+		'The habits will still be here tomorrow',
+		'It’s late. Very late',
+		'Sleep is a habit too, you know',
+		'Who’s still up? You are',
+		'Done. Pillow time?',
+		'Even the stars are yawning',
+		'Tick, then sleep. That’s the deal',
+		'Up past bedtime again?',
+		'The moon approves. Barely',
+		'Quietly ticked. Shh',
+		'Late-night hustle, noted',
+	],
+	/** Everything done early in the morning (instead of allDone). */
+	earlyBird: [
+		'Early bird! All done before breakfast',
+		'Up with the sun and already finished',
+		'All done, and the day has barely started',
+		'Rise and shine, and done',
+		'The early bird gets every tick',
+		'Finished before the coffee cooled',
+		'Sunrise and a clean sweep',
+		'The whole list, done. It’s not even 8',
+		'Morning champion',
+		'The rest of the day is yours',
+		'Done before most alarms go off',
+		'Bright and early, and all ticked',
+		'Good morning, overachiever',
+		'First light, full marks',
+		'That’s how you start a day',
+	],
+
 	/* ---------- Calendar ---------- */
 
 	clearModeOn: [

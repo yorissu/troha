@@ -9,10 +9,11 @@
  * habit without a name).
  */
 
-import { clearInvalid, h, icon, markInvalid } from '../../../core/dom.js';
+import { h, icon } from '../../../core/dom.js';
 import { fuzzyFilter } from '../../../core/fuzzy.js';
 import { Sheet } from '../../base/sheet/sheet.js';
 import { Button } from '../../base/button/button.js';
+import { TextField } from '../../controls/text_field/text_field.js';
 
 const PLACEHOLDER = 'Search or name a new file';
 const NAME_MISSING = 'Type a name first';
@@ -32,29 +33,22 @@ export class FilePicker extends Sheet {
 	 * @param {{maxLength: number, clean: (text: string) => string}} options.fileName What a file may be called.
 	 */
 	constructor(host, { keyboard, fileName }) {
-		super(host, { tag: 'form', className: 'file-picker' });
+		super(host, { className: 'file-picker', onSubmit: () => this.#create() });
 		this.#keyboard = keyboard;
 		this.#cleanName = fileName.clean;
-		this.element.autocomplete = 'off';
-		this.element.addEventListener('submit', (event) => {
-			event.preventDefault();
-			this.#create();
-		});
-
-		this.#name = h('input', {
-			className: 'text-input',
+		this.#name = new TextField({
+			keyboard,
 			maxLength: fileName.maxLength,
 			placeholder: PLACEHOLDER,
-			attrs: { inputmode: 'none', 'aria-label': 'File name' }, // the on-screen keyboard, not the system one
-			on: { input: () => this.#typed() },
+			ariaLabel: 'File name',
+			onInput: () => this.#typed(),
 		});
-		keyboard.attach(this.#name);
 
 		const cancel = new Button({ className: 'button', label: 'Cancel', onTap: () => this.close() });
 		const create = new Button({ className: 'button primary', label: 'Create', type: 'submit' });
 		this.element.append(
 			h('h2', { text: 'Data file' }),
-			h('div', { className: 'field-with-hint' }, this.#name, this.#taken),
+			h('div', { className: 'field-with-hint' }, this.#name.element, this.#taken),
 			h('p', { className: 'note', text: 'Tap a file to use it, or type a new name (a–z, 0–9, _ and -) and tap Create.' }),
 			this.#list,
 			h('div', { className: 'sheet-actions' }, h('span', { className: 'spacer' }), cancel.element, create.element));
@@ -92,7 +86,7 @@ export class FilePicker extends Sheet {
 	/** The typed name is taken (e.g. the server said so): mark it. */
 	markTaken() {
 		this.#taken.hidden = false;
-		markInvalid(this.#name);
+		this.#name.markInvalid();
 	}
 
 	onHide() {
@@ -136,8 +130,7 @@ export class FilePicker extends Sheet {
 	#create() {
 		const name = this.#name.value;
 		if (!name) {
-			this.#name.placeholder = NAME_MISSING;
-			markInvalid(this.#name);
+			this.#name.markInvalid(NAME_MISSING);
 			return;
 		}
 		if (this.#request.files.includes(name)) {
@@ -148,9 +141,8 @@ export class FilePicker extends Sheet {
 	}
 
 	#clearMarks() {
-		clearInvalid(this.#name);
+		this.#name.clearMarks();
 		this.#taken.hidden = true;
-		this.#name.placeholder = PLACEHOLDER;
 	}
 }
 

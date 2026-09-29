@@ -1,24 +1,26 @@
 
-/* Manage view (see manage_view.js). */
+/* Manage view (see manage_view.js): habit cards in a grid, like Today's. */
 
 /* A scroll area (styles/layout.css). */
-.manage-list {
+.manage-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	align-content: start;
-	gap: 1.125rem;
-	--rise: .8rem;          /* rows rise in: under the gap ÷ 1.3, so they never overlap */
-	--bounce-room: .5rem;   /* room above for the first rows' bounce */
+	gap: 1.375rem;           /* as on Today */
+	--rise: 1rem;            /* cards rise in: under the gap ÷ 1.3, so they never overlap */
+	--bounce-room: .5rem;    /* room above for the first row's bounce */
 	padding-bottom: 1rem;
 }
 
-.manage-row {
+/* Name on top, then any tags; the week sits at the bottom, so the weeks of a row line up. */
+.manage-card {
 	display: flex;
-	align-items: baseline;
-	gap: 1.5rem;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 1rem;
 	min-width: 0;
-	padding: 1.5rem 2.25rem;
-	border-radius: 1.75rem;
+	padding: 1.75rem 2rem 1.5rem;
+	border-radius: var(--radius);
 	background: var(--c-fill);
 	color: var(--c-text);
 	text-align: left;
@@ -26,27 +28,64 @@
 	animation-delay: var(--delay, 0ms);
 }
 
+/* Up to two lines, then "…". */
 .manage-name {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 	overflow: hidden;
-	font-size: 2rem;
+	font-size: 1.875rem;
 	font-weight: 500;
-	white-space: nowrap;
-	text-overflow: ellipsis;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
 }
 
-.manage-schedule {
-	flex-shrink: 0;
-	max-width: 50%;
-	margin-left: auto;
-	overflow: hidden;
-	font-size: 1.5rem;
-	color: var(--c-soft);
-	white-space: nowrap;
-	text-overflow: ellipsis;
-}
-
-.manage-row .redacted {
-	align-self: center;
-	width: 13rem;
+.manage-card .redacted {
+	width: 60%;
 	height: 1.6rem;
+	margin: .6rem 0;
 }
+
+/* Tags: what's out of the ordinary (every 2 weeks, starts later, private). */
+.manage-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5rem;
+}
+
+.manage-tag {
+	padding: .2rem .8rem;
+	border-radius: .75rem;
+	background: color-mix(in srgb, var(--c-soft) 14%, transparent);
+	color: var(--c-soft);
+	font-size: 1.3rem;
+}
+
+/* The week: a bar per weekday, filled on the habit's days, with the day's initial under it.
+   The soft text colour reads on every habit fill in both themes. */
+.week-strip {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: .6rem;
+	width: 100%;
+	margin-top: auto;
+}
+
+.week-day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: .35rem;
+	font-size: 1.2rem;
+	color: color-mix(in srgb, var(--c-soft) 55%, transparent);
+}
+
+.week-bar {
+	width: 100%;
+	height: .7rem;
+	border-radius: .35rem;
+	background: color-mix(in srgb, var(--c-soft) 20%, transparent);
+}
+
+.week-day.on { color: var(--c-soft); font-weight: 500; }
+.week-day.on .week-bar { background: var(--c-soft); }

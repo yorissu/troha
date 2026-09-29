@@ -11,6 +11,8 @@
 	--page: #F4F7FB;                /* page background */
 	--letterbox: #26303F;           /* bars around the app if the screen isn't 16:9 */
 	--backdrop: rgb(30 45 70 / .3); /* dims the screen behind pop-ups */
+	--tour-dim: rgb(20 32 52 / .55); /* dims everything but the spotlight in the tour */
+	--tour-outline: #4F86C6;        /* the tour's outlines (on what it explains) and its card */
 	--surface: #FBFCFE;             /* pop-ups */
 	--muted-fill: #E6EDF4;          /* idle pills, empty calendar days */
 	--weekend-fill: #DAE4EE;        /* calendar days on Saturday and Sunday: a shade deeper */
@@ -123,6 +125,8 @@
 	--page: #172030;
 	--letterbox: #0C111A;
 	--backdrop: rgb(4 8 16 / .55);
+	--tour-dim: rgb(2 4 10 / .7);
+	--tour-outline: #9CC2EC;
 	--surface: #202B3D;
 	--muted-fill: #263244;
 	--weekend-fill: #2E3C51;

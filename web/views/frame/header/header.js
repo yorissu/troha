@@ -3,7 +3,7 @@
  * Header: the view title and the row of buttons (lock, views, add, settings).
  */
 
-import { h } from '../../../core/dom.js';
+import { h, replayAnimation } from '../../../core/dom.js';
 import { Component } from '../../base/component/component.js';
 import { IconButton } from '../../controls/icon_button/icon_button.js';
 
@@ -22,6 +22,7 @@ const VIEWS = [
 export class Header extends Component {
 	#title = h('h1', { className: 'title' });
 	#viewButtons = new Map(); // view id -> IconButton
+	#nav;
 
 	/**
 	 * @param {object} options
@@ -37,8 +38,26 @@ export class Header extends Component {
 		const addButton = new IconButton({ icon: 'add', ariaLabel: 'Add habit', onTap: onAdd });
 		const buttonsOf = (afterAdd) => VIEWS.filter((view) => Boolean(view.afterAdd) === afterAdd)
 			.map((view) => this.#viewButtons.get(view.id).element);
-		this.element.append(this.#title, h('nav', { className: 'nav' },
-			lockButton.element, ...buttonsOf(false), addButton.element, ...buttonsOf(true)));
+		this.#nav = h('nav', { className: 'nav' }, lockButton.element, ...buttonsOf(false), addButton.element, ...buttonsOf(true));
+		this.element.append(this.#title, this.#nav);
+	}
+
+	/** The buttons in the row, left to right (the tour points them out). */
+	get navButtons() {
+		return [...this.#nav.children];
+	}
+
+	/** The button of view `id` ('today', 'calendar', 'manage' or 'settings'). */
+	viewButton(id) {
+		return this.#viewButtons.get(id).element;
+	}
+
+	/** The buttons pop one after another, left to right (the tour's flourish). */
+	flare() {
+		[...this.#nav.children].forEach((button, i) => {
+			button.style.setProperty('--pop-delay', `${150 + i * 110}ms`);
+			replayAnimation(button, 'tour-pop');
+		});
 	}
 
 	/** Shows `view`'s title and highlights its button. */

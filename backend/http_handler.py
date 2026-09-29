@@ -1,6 +1,7 @@
 
 """The web server: serves ./web, and answers the page's requests:
 
+	GET  /api/health          {"ok": true}: the server is up (the page checks this regularly)
 	GET  /api/data            the data file in use (its name in the X-Troha-File header)
 	PUT  /api/data            save it (the X-Troha-File header must name the file in use)
 	GET  /api/files           the data files, and which one is in use
@@ -53,7 +54,9 @@ class Handler(SimpleHTTPRequestHandler):
 	def do_GET(self):
 		if not self.host_allowed():
 			return
-		if self.path == "/api/data":
+		if self.path == "/api/health":
+			self.send_json({"ok": True})
+		elif self.path == "/api/data":
 			self.get_data()
 		elif self.path == "/api/files":
 			self.send_json({"files": self.data_files.names(), "inUse": self.data_files.in_use()})
@@ -121,18 +124,14 @@ class Handler(SimpleHTTPRequestHandler):
 		self.send_json(data, headers={FILE_HEADER: name})
 
 	def post_use_file(self, body):
-		name = body.get("name")
-		if not valid_name(name):
-			self.send_error(HTTPStatus.BAD_REQUEST, "Names use a-z, 0-9, _ and - (up to 40)")
-			return
-		self.send_json(self.data_files.use(name, create=body.get("create") is True))
+		name = self.file_name(body)
+		if name:
+			self.send_json(self.data_files.use(name, create=body.get("create") is True))
 
 	def post_delete_file(self, body):
-		name = body.get("name")
-		if not valid_name(name):
-			self.send_error(HTTPStatus.BAD_REQUEST, "Names use a-z, 0-9, _ and - (up to 40)")
-			return
-		self.send_json(self.data_files.delete(name))
+		name = self.file_name(body)
+		if name:
+			self.send_json(self.data_files.delete(name))
 
 	def post_set_clock(self, body):
 		date, clock_time = body.get("date"), body.get("time")
@@ -149,6 +148,14 @@ class Handler(SimpleHTTPRequestHandler):
 		self.send_json(display.set_backlight(level, on))
 
 	# ---------- Helpers ----------
+
+	def file_name(self, body):
+		"""The body's data file name, or None (after answering with an error) if it isn't a valid one."""
+		name = body.get("name")
+		if valid_name(name):
+			return name
+		self.send_error(HTTPStatus.BAD_REQUEST, "Names use a-z, 0-9, _ and - (up to 40)")
+		return None
 
 	def host_allowed(self):
 		"""True for requests to this computer by name; anything else gets 403 (blocks DNS-rebinding tricks)."""

@@ -12,6 +12,7 @@
 
 export class IdleTimer extends EventTarget {
 	#lastActivity = performance.now();
+	#awake = false;
 
 	constructor() {
 		super();
@@ -26,9 +27,18 @@ export class IdleTimer extends EventTarget {
 		this.dispatchEvent(new Event('activity'));
 	}
 
-	/** Milliseconds since the last activity. */
+	/**
+	 * While kept awake (e.g. during the tour), it never counts as idle: nothing goes back
+	 * to Today, asks "Log out?" or turns the screen off. Letting go starts afresh.
+	 */
+	keepAwake(awake) {
+		this.#awake = awake;
+		this.touch();
+	}
+
+	/** Milliseconds since the last activity (0 while kept awake). */
 	get idleMs() {
-		return performance.now() - this.#lastActivity;
+		return this.#awake ? 0 : performance.now() - this.#lastActivity;
 	}
 
 	/** How much of `limitMs` is left, from 1 (just touched) to 0. */

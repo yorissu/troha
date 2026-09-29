@@ -5,7 +5,7 @@
 	position: absolute;
 	inset: 0;
 	background: #000;
-	opacity: 0;
+	opacity: var(--start-dim, 0); /* as dim as last time (first_look.js), so it doesn't fade in on a reload */
 	pointer-events: none;
 	transition: opacity 2s ease;
 }
@@ -22,4 +22,14 @@
 .night-shade.blank,
 .night-shade.waking {
 	pointer-events: auto;
+}
+
+/* Until the shade exists, the whole window is as dim as last time (first_look.js). */
+body:not(:has(.night-shade))::after {
+	content: "";
+	position: fixed;
+	inset: 0;
+	background: #000;
+	opacity: var(--start-dim, 0);
+	pointer-events: none;
 }

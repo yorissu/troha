@@ -10,10 +10,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Date -> "YYYY-MM-DD" in local time. */
 export function toKey(date) {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /** "YYYY-MM-DD" -> Date at local midnight. */
@@ -48,8 +45,27 @@ export function isoWeekday(date) {
 }
 
 /** The Monday of the week that contains `date`. */
-export function mondayOf(date) {
+function mondayOf(date) {
 	return addDays(date, 1 - isoWeekday(date));
+}
+
+/** How many weeks (rows) the month of `date` needs in a calendar that starts on Mondays: 4 to 6. */
+export function weeksInMonth(date) {
+	const month = firstOfMonth(date);
+	const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+	return Math.ceil((isoWeekday(month) - 1 + days) / 7);
+}
+
+/**
+ * The days a calendar shows for the month of `date`: whole weeks, Monday first,
+ * starting with the week of the 1st (so a few days of the months around it too).
+ * @param {Date} date
+ * @param {number} [weeks] How many weeks: the month's own (weeksInMonth) unless given.
+ * @returns {Date[]}
+ */
+export function calendarDays(date, weeks = weeksInMonth(date)) {
+	const first = mondayOf(firstOfMonth(date));
+	return Array.from({ length: weeks * 7 }, (_, i) => addDays(first, i));
 }
 
 /** Whole weeks from the week of `a` to the week of `b` (negative when `b` is earlier). */
@@ -95,12 +111,6 @@ export function minutesOf(time) {
 	return hours * 60 + minutes;
 }
 
-/** "HH:MM" from minutes since midnight (wrapping around the day, e.g. -30 -> "23:30"). */
-export function timeOf(minutes) {
-	const inDay = ((minutes % 1440) + 1440) % 1440;
-	return `${pad(Math.floor(inDay / 60))}:${pad(inDay % 60)}`;
-}
-
 /** Minutes from `from` to `to` (both minutes since midnight), going forward round the clock: 0–1439. */
 export function minutesAfter(from, to) {
 	return (((to - from) % 1440) + 1440) % 1440;
@@ -120,10 +130,14 @@ export function isWithin(time, from, until) {
  * "HH:MM", wrapping past midnight (e.g. 22:00 to 07:00). Equal times mean never.
  */
 export function isInTimeRange(date, from, until) {
-	const now = date.getHours() * 60 + date.getMinutes();
 	const start = minutesOf(from);
-	const end = minutesOf(until);
-	return start <= end ? now >= start && now < end : now >= start || now < end;
+	const now = date.getHours() * 60 + date.getMinutes();
+	return minutesAfter(start, now) < minutesAfter(start, minutesOf(until));
+}
+
+/** A time range as text, e.g. "22:00–07:00". @param {{from: string, until: string}} range */
+export function timeRangeText({ from, until }) {
+	return `${from}–${until}`;
 }
 
 /** Two-digit number, e.g. 7 -> "07". */

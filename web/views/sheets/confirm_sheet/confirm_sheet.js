@@ -38,7 +38,7 @@ export class ConfirmSheet extends Sheet {
 	 * @param {boolean} [question.poof] Close with the "deleted" exit on Yes.
 	 * @param {number} [question.countdownMs] Answer Yes by itself after this long.
 	 * @param {(secondsLeft: number) => string} [question.countdownNote] Note text during the countdown.
-	 * @param {Element} [question.origin] The element it grows out of.
+	 * @param {Element} [question.origin] The element that asked (it closes toward it).
 	 * @param {() => void} [question.onYes]
 	 * @param {() => void} [question.onNo] Default: just close.
 	 */

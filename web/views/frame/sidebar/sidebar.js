@@ -10,9 +10,10 @@
 
 import { h, lockUntilAnimationEnds, replayAnimation } from '../../../core/dom.js';
 import { clockText, formatDate } from '../../../core/dates.js';
+import { QuickTaps } from '../../../core/taps.js';
 import { Component } from '../../base/component/component.js';
 
-const DAY_ANIMATIONS = ['cheer', 'flip', 'nudge'];
+const DAY_ANIMATIONS = ['cheer', 'flip', 'nudge', 'sunrise'];
 
 export class Sidebar extends Component {
 	#locale;
@@ -24,9 +25,8 @@ export class Sidebar extends Component {
 	#progressFill = h('div', { className: 'progress-fill' });
 	#clock = h('div', { className: 'clock' });
 	#onTickle;
-	#playful;
-	#taps = 0;
-	#lastTap = 0;
+	#tickleTaps;
+	#taps;
 
 	/**
 	 * @param {object} options
@@ -38,7 +38,8 @@ export class Sidebar extends Component {
 	constructor({ locale, buttons, playful, onTickle }) {
 		super(h('aside', { className: 'sidebar' }));
 		this.#locale = locale;
-		this.#playful = playful;
+		this.#tickleTaps = playful.tickleTaps;
+		this.#taps = new QuickTaps(playful.tickleGapMs);
 		this.#onTickle = onTickle;
 		this.#dayNumber.addEventListener('click', () => this.#tapDayNumber());
 		this.element.append(
@@ -48,6 +49,15 @@ export class Sidebar extends Component {
 				h('div', { className: 'progress' }, this.#progressFill),
 				this.#clock,
 				h('div', { className: 'clock-buttons' }, ...buttons.map((button) => button.element))));
+	}
+
+	/** The big day number, and the clock (the tour points them out). */
+	get dayNumber() {
+		return this.#dayNumber;
+	}
+
+	get clock() {
+		return this.#clock;
 	}
 
 	/** @param {Date} date */
@@ -75,19 +85,26 @@ export class Sidebar extends Component {
 		replayAnimation(this.#dayNumber, 'cheer', DAY_ANIMATIONS);
 	}
 
+	/** The early bird's celebration: the day number comes up like the sun, glowing, and bounces. */
+	sunrise() {
+		replayAnimation(this.#dayNumber, 'sunrise', DAY_ANIMATIONS);
+	}
+
+	/** Make a wish: the clock twinkles. */
+	shimmerClock() {
+		replayAnimation(this.#clock, 'shimmer');
+	}
+
 	/** Counts quick taps on the day number; enough of them flip it and tickle the cards. */
 	#tapDayNumber() {
 		if (this.#dayNumber.classList.contains('busy')) return; // still flipping: let it finish
-		const { tickleTaps, tickleGapMs } = this.#playful;
-		const now = performance.now();
-		this.#taps = now - this.#lastTap > tickleGapMs ? 1 : this.#taps + 1;
-		this.#lastTap = now;
-		if (this.#taps < tickleTaps) {
-			this.#dayNumber.style.setProperty('--nudge', this.#taps / tickleTaps); // grows with each tap
+		const taps = this.#taps.tap();
+		if (taps < this.#tickleTaps) {
+			this.#dayNumber.style.setProperty('--nudge', taps / this.#tickleTaps); // grows with each tap
 			replayAnimation(this.#dayNumber, 'nudge', DAY_ANIMATIONS);
 			return;
 		}
-		this.#taps = 0;
+		this.#taps.reset();
 		replayAnimation(this.#dayNumber, 'flip', DAY_ANIMATIONS);
 		lockUntilAnimationEnds(this.#dayNumber); // taps wait until the flip is done
 		this.#onTickle();

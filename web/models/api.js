@@ -2,21 +2,80 @@
 /**
  * Talks to server.py, which keeps the data files and can set the device's clock
  * and its screen's backlight.
+ *
+ * Once the server doesn't answer a request (or answers too late), no more requests
+ * are sent: a change that couldn't be saved must never be saved later. The page
+ * then waits for the server to be started again (on the Pi, troha.service does
+ * that) and reloads (see ServerController).
  */
 
 const DATA_URL = '/api/data';
 const FILES_URL = '/api/files';
 const CLOCK_URL = '/api/clock';
 const DISPLAY_URL = '/api/display';
+const HEALTH_URL = '/api/health';
 const FILE_HEADER = 'X-Troha-File'; // which data file was loaded; saves name it, so they can't land in another
+const SLOW_MS = 90 * 1000;          // setting the clock from the network may take this long
 
 let lastSave = Promise.resolve();
 let fileName = null;
+let timeoutMs = 10 * 1000;
+let reachable = true;
+let onLost = () => {};
+
+/**
+ * Sets how long a request may take, and what to do once the server is lost.
+ * @param {{timeoutMs: number, onLost: () => void}} options onLost is called once.
+ */
+export function watchServer(options) {
+	({ timeoutMs, onLost } = options);
+}
+
+/** A request that wasn't sent or answered: the server is down (or was, earlier). */
+export class ServerLost extends Error {
+	constructor() {
+		super("The server isn't answering");
+	}
+}
+
+/** From now on, sends no more requests (see the top of this file). */
+export function serverLost() {
+	if (!reachable) return;
+	reachable = false;
+	onLost();
+}
+
+/** True if the server answers its health check right now (also after it was lost). */
+export async function serverAnswers() {
+	try {
+		const response = await fetch(HEALTH_URL, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
+		return response.ok;
+	} catch {
+		return false;
+	}
+}
+
+/** fetch(), unless the server is lost; a request it doesn't answer in time loses it. Throws ServerLost. */
+async function request(url, { slow = false, ...options } = {}) {
+	if (!reachable) throw new ServerLost();
+	try {
+		return await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(slow ? SLOW_MS : timeoutMs), ...options });
+	} catch {
+		serverLost();
+		throw new ServerLost();
+	}
+}
+
+/** request(), then an Error unless the server said it worked. Throws ServerLost or Error. */
+async function requestOk(url, options) {
+	const response = await request(url, options);
+	if (!response.ok) throw new Error(`${url} failed (${response.status})`);
+	return response;
+}
 
 /** Loads the data file in use (as saved; see data_format.js). */
 export async function loadData() {
-	const response = await fetch(DATA_URL, { cache: 'no-store' });
-	if (!response.ok) throw new Error(`Loading failed (${response.status})`);
+	const response = await requestOk(DATA_URL);
 	fileName = response.headers.get(FILE_HEADER);
 	return response.json();
 }
@@ -26,7 +85,7 @@ export function dataFileName() {
 	return fileName;
 }
 
-/** A save that didn't work; `reason` is e.g. 'other-file', 'invalid' or 'offline'. */
+/** A save that didn't work; `reason` is e.g. 'other-file', 'invalid' or 'lost' (the server is down). */
 export class SaveError extends Error {
 	constructor(reason) {
 		super(`Saving failed (${reason})`);
@@ -40,13 +99,13 @@ export function saveData(data) {
 	const save = lastSave.catch(() => {}).then(async () => {
 		let response;
 		try {
-			response = await fetch(DATA_URL, {
+			response = await request(DATA_URL, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json', [FILE_HEADER]: fileName ?? '' },
 				body,
 			});
 		} catch {
-			throw new SaveError('offline');
+			throw new SaveError('lost');
 		}
 		if (!response.ok) {
 			const answer = await response.json().catch(() => ({}));
@@ -72,10 +131,9 @@ export const FILE_NAME = {
 	clean: (text) => text.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').replace(/^[_-]+/, ''),
 };
 
-/** @returns {Promise<{files: string[], inUse: string}>} The data files' names, and the one in use. */
+/** @returns {Promise<{files: string[], inUse: string}>} The data files' names, and the one in use. Throws ServerLost. */
 export async function listFiles() {
-	const response = await fetch(FILES_URL, { cache: 'no-store' });
-	if (!response.ok) throw new Error(`Listing failed (${response.status})`);
+	const response = await requestOk(FILES_URL);
 	return response.json();
 }
 
@@ -100,7 +158,7 @@ export function deleteFile(name) {
  * @returns {Promise<{ok: boolean, reason?: string}>} reason: 'offline', 'not-allowed', 'not-supported' or 'failed'.
  */
 export function syncClock() {
-	return post(`${CLOCK_URL}/sync`, {});
+	return post(`${CLOCK_URL}/sync`, {}, { slow: true });
 }
 
 /**
@@ -109,14 +167,14 @@ export function syncClock() {
  * @returns {Promise<{ok: boolean, test?: boolean, reason?: string}>} test: not the Pi, so nothing was changed.
  */
 export function setClock(when) {
-	return post(CLOCK_URL, when);
+	return post(CLOCK_URL, when, { slow: true });
 }
 
 /** True if the device's screen backlight can be controlled (e.g. a Pi touch display). */
 export async function backlightSupported() {
 	try {
-		const response = await fetch(DISPLAY_URL, { cache: 'no-store' });
-		return response.ok && (await response.json()).supported === true;
+		const response = await requestOk(DISPLAY_URL);
+		return (await response.json()).supported === true;
 	} catch {
 		return false;
 	}
@@ -131,13 +189,20 @@ export function setBacklight(state) {
 	return post(DISPLAY_URL, state);
 }
 
-async function post(url, body) {
+/** Sends a small JSON request. Answers {ok: false, reason: 'lost'} if the server is down. */
+async function post(url, body, { slow = false } = {}) {
+	let response;
 	try {
-		const response = await fetch(url, {
+		response = await request(url, {
+			slow,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
 		});
+	} catch {
+		return { ok: false, reason: 'lost' };
+	}
+	try {
 		return await response.json();
 	} catch {
 		return { ok: false, reason: 'failed' };

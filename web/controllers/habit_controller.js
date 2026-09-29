@@ -4,11 +4,15 @@
  * adding, editing and deleting habits, and the celebrations.
  */
 
-import { describeSchedule } from '../core/schedule.js';
+import { describeSchedule, repeatText } from '../core/schedule.js';
 import { addDaysToKey, formatDate, fromKey } from '../core/dates.js';
 import { prefersReducedMotion } from '../core/dom.js';
 import { say } from '../core/text.js';
 import { messages } from '../messages.js';
+
+const NO_HABITS = 'No habits yet. Tap + to add your first one.';
+const SUNRISE_COLORS = ['butter', 'peach', 'blush']; // the early bird's confetti
+const NOTHING_TODAY = 'Nothing planned today. Enjoy it.';
 
 export class HabitController {
 	#store;
@@ -19,10 +23,12 @@ export class HabitController {
 	#views;
 	#requireLogin;
 	#isLoggedIn;
+	#playful;
 	#view = 'today';
 	#halfwayShownOn = null; // the day the "halfway" toast was shown (once a day)
 	#clearing = false;      // Calendar clear mode
-	#cleared = new Map();   // days cleared while "Undo" is still on screen: day -> its log entry
+	#cleared = new Map();   // days cleared while their "Undo" is on screen: day -> its log entry before clearing
+	#undoClearing = null;   // that "Undo" (so a new clear can tell whether it's still on offer)
 
 	/**
 	 * @param {object} options
@@ -34,8 +40,9 @@ export class HabitController {
 	 * @param {object} options.views sidebar, today, calendar, manage, editor, confirm, toast, confetti
 	 * @param {(origin: Element, then?: () => void) => void} options.requireLogin
 	 * @param {() => boolean} options.isLoggedIn
+	 * @param {import('./playful_controller.js').PlayfulController} options.playful The night owl and the early bird.
 	 */
-	constructor({ store, clock, idle, config, dayNames, views, requireLogin, isLoggedIn }) {
+	constructor({ store, clock, idle, config, dayNames, views, requireLogin, isLoggedIn, playful }) {
 		this.#store = store;
 		this.#clock = clock;
 		this.#idle = idle;
@@ -44,6 +51,7 @@ export class HabitController {
 		this.#views = views;
 		this.#requireLogin = requireLogin;
 		this.#isLoggedIn = isLoggedIn;
+		this.#playful = playful;
 	}
 
 	get #day() {
@@ -58,7 +66,7 @@ export class HabitController {
 		today.element.hidden = view !== 'today';
 		calendar.element.hidden = view !== 'calendar';
 		manage.element.hidden = view !== 'manage';
-		if (view === 'calendar') calendar.showMonthOf(this.#day);
+		if (view === 'calendar') calendar.goToMonthOf(this.#day); // drawn by render() below
 		this.render();
 	}
 
@@ -67,11 +75,9 @@ export class HabitController {
 		const { sidebar, today, calendar, manage } = this.#views;
 		sidebar.showDate(fromKey(this.#day));
 		this.#showProgress();
-		if (this.#view === 'today') today.render(this.#todayItems(), this.#store.habits.length
-			? 'Nothing planned today. Enjoy it.'
-			: 'No habits yet. Tap + to add your first one.');
+		if (this.#view === 'today') today.render(this.#todayItems(), this.#store.habits.length ? NOTHING_TODAY : NO_HABITS);
 		if (this.#view === 'calendar') calendar.render();
-		if (this.#view === 'manage') manage.render(this.#manageItems());
+		if (this.#view === 'manage') manage.render(this.#manageItems(), NO_HABITS);
 	}
 
 	/** The sidebar clock. */
@@ -85,8 +91,8 @@ export class HabitController {
 
 		const count = this.#store.entry(this.#day).total;
 		const weekday = formatDate(fromKey(this.#day), this.#config.locale, 'weekday');
-		this.#views.toast.show(count ? say(messages.greeting, weekday, count) : say(messages.greetingFree, weekday),
-			{ duration: this.#toastMs.long });
+		const greeting = count ? say(messages.greeting, weekday, count) : say(messages.greetingFree, weekday);
+		this.#views.toast.show(greeting, { duration: 'long' });
 	}
 
 	/** After logging in or out: private names appear or hide (or, after a PIN reset, everything redraws). */
@@ -103,7 +109,7 @@ export class HabitController {
 			if (loggedIn) card.reveal(content);
 			else card.conceal(content);
 		}
-		if (this.#view === 'manage') this.#views.manage.render(this.#manageItems());
+		if (this.#view === 'manage') this.#views.manage.render(this.#manageItems(), NO_HABITS);
 	}
 
 	/* ---------- Taps ---------- */
@@ -123,15 +129,19 @@ export class HabitController {
 		card.playToggle();
 		this.#showProgress({ bump: true });
 		this.#store.save();
-		if (done) this.#cheerIfDeserved();
+		if (!done) return;
+		const cheer = this.#cheerIfDeserved();
+		// In the small hours, a sleepy remark, unless a cheer is on its way (then it waits for the next tick).
+		const sleepy = cheer ? null : this.#playful.sleepyRemark(new Date());
+		if (sleepy) this.#views.toast.show(sleepy);
 	}
 
-	/** A row in Manage: edit that habit (a hidden one asks for the PIN first). */
-	tapRow(id, row) {
+	/** A card in Manage: edit that habit (a hidden one asks for the PIN first). */
+	tapManageCard(id, card) {
 		const habit = this.#store.find(id);
 		if (!habit) return;
-		if (this.#isHidden(habit)) this.#requireLogin(row, () => this.#edit(habit, row));
-		else this.#edit(habit, row);
+		if (this.#isHidden(habit)) this.#requireLogin(card, () => this.#edit(habit, card));
+		else this.#edit(habit, card);
 	}
 
 	/** The + button. */
@@ -148,25 +158,27 @@ export class HabitController {
 
 	/** A day tapped in clear mode: its counter is removed ("Undo" is offered for a few seconds). */
 	clearDay(day, cell) {
-		if (!this.#clearing) return;
+		if (!this.#clearing || !this.#store.entry(day)) return; // e.g. a second tap before it's redrawn
+		// Days cleared while their "Undo" is still on screen are undone together. A day
+		// cleared twice (today comes back empty) keeps what it had before the first time.
+		if (!this.#views.toast.offers(this.#undoClearing)) this.#cleared = new Map();
+		const cleared = this.#cleared;
 		const entry = this.#store.clearDay(day);
+		if (!cleared.has(day)) cleared.set(day, entry);
 		if (day === this.#day) this.#store.syncDay(day); // today starts again from nothing done
 		this.#store.save();
 		this.#views.calendar.clearOut(cell, () => this.render());
 
-		// Days cleared while "Undo" is still on screen are undone together.
-		if (!this.#views.toast.hasAction) this.#cleared = new Map();
-		const cleared = this.#cleared;
-		cleared.set(day, entry);
 		const count = cleared.size;
 		const label = day === this.#day ? 'today' : this.#friendlyDate(day);
-		this.#offerUndo(count === 1 ? `Cleared ${label}` : `Cleared ${count} days`, () => {
+		this.#undoClearing = () => {
 			this.#store.restoreDays(cleared);
 			this.#store.syncDay(this.#day);
 			this.#store.save();
 			this.render();
-			this.#views.toast.show(count === 1 ? 'Day restored' : `${count} days restored`, { duration: this.#toastMs.short });
-		});
+			this.#views.toast.show(count === 1 ? 'Day restored' : `${count} days restored`, { duration: 'short' });
+		};
+		this.#offerUndo(count === 1 ? `Cleared ${label}` : `Cleared ${count} days`, this.#undoClearing);
 	}
 
 	/** Called every second (and on every touch): clear mode ends after a while without a touch. */
@@ -183,7 +195,7 @@ export class HabitController {
 		this.#views.calendar.setClearMode(on);
 		if (on) this.#views.calendar.setClearTimeLeft(1);
 		if (quiet || (!on && this.#views.toast.hasAction)) return; // keep "Undo" on screen
-		this.#views.toast.show(say(on ? messages.clearModeOn : messages.clearModeOff), { duration: this.#toastMs.short });
+		this.#views.toast.show(say(on ? messages.clearModeOn : messages.clearModeOff), { duration: 'short' });
 	}
 
 	/* ---------- Editor callbacks ---------- */
@@ -191,7 +203,7 @@ export class HabitController {
 	/** A new habit from the editor. */
 	added(fields) {
 		this.#store.add(fields);
-		this.#views.toast.show(fields.private ? say(messages.addedPrivate) : say(messages.added, fields.name), { duration: this.#toastMs.normal });
+		this.#views.toast.show(fields.private ? say(messages.addedPrivate) : say(messages.added, fields.name));
 		this.#views.editor.close();
 		this.#store.syncDay(this.#day);
 		this.render();
@@ -217,30 +229,27 @@ export class HabitController {
 			origin,
 			onNo: () => this.#views.editor.reopen(origin),
 			onYes: () => {
-				const doneToday = this.#store.entry(this.#day).done.includes(habit.id);
+				const day = this.#day; // Undo may come after midnight: the tick belongs to this day
+				const wasDone = this.#store.entry(day).done.includes(habit.id);
 				const index = this.#store.remove(habit);
-				this.#store.syncDay(this.#day);
+				this.#store.syncDay(day);
 				this.render();
 				this.#store.save();
 				this.#offerUndo(habit.private ? 'Deleted a private habit' : `Deleted “${habit.name}”`, () => {
 					this.#store.restore(habit, index);
-					this.#store.syncDay(this.#day);
-					const { done } = this.#store.entry(this.#day);
-					if (doneToday && !done.includes(habit.id)) done.push(habit.id); // its tick comes back too
+					this.#store.syncDay(day);
+					const { done } = this.#store.entry(day);
+					if (wasDone && !done.includes(habit.id)) done.push(habit.id); // its tick comes back too
+					if (day !== this.#day) this.#store.syncDay(this.#day);
 					this.render();
 					this.#store.save();
-					this.#views.toast.show(habit.private ? 'Private habit restored' : `Restored “${habit.name}”`, { duration: this.#toastMs.short });
+					this.#views.toast.show(habit.private ? 'Private habit restored' : `Restored “${habit.name}”`, { duration: 'short' });
 				});
 			},
 		});
 	}
 
 	/* ---------- Helpers ---------- */
-
-	/** How long toasts stay (config.toastMs). */
-	get #toastMs() {
-		return this.#config.toastMs;
-	}
 
 	/** A toast with an "Undo" button, offered for `config.timing.undoMs`. */
 	#offerUndo(message, undo) {
@@ -268,25 +277,27 @@ export class HabitController {
 		};
 	}
 
-	#todayItems() {
-		const done = new Set(this.#store.entry(this.#day).done);
-		return this.#store.habitsOn(this.#day).map((habit) => ({
-			id: habit.id,
-			colorClass: this.#colorClass(habit),
-			done: done.has(habit.id),
-			...this.#cardContent(habit),
-		}));
+	/** A habit as the views show it: id, colour, name (or hidden) and schedule. */
+	#item(habit) {
+		return { id: habit.id, colorClass: this.#colorClass(habit), ...this.#cardContent(habit) };
 	}
 
+	#todayItems() {
+		const done = new Set(this.#store.entry(this.#day).done);
+		return this.#store.habitsOn(this.#day).map((habit) => ({ ...this.#item(habit), done: done.has(habit.id) }));
+	}
+
+	/** Manage shows each habit's days, and tags for what's out of the ordinary. */
 	#manageItems() {
-		return this.#store.habits.map((habit) => ({
-			id: habit.id,
-			colorClass: this.#colorClass(habit),
-			name: displayName(habit),
-			hidden: this.#isHidden(habit),
-			schedule: describeSchedule(habit, this.#dayNames)
-				+ (habit.startDate > this.#day ? ` · from ${this.#friendlyDate(habit.startDate)}` : ''),
-		}));
+		return this.#store.habits.map((habit) => {
+			const start = habit.startDate > this.#day ? this.#friendlyDate(habit.startDate) : null;
+			const tags = [
+				repeatText(habit),
+				start && `starts ${start === 'Tomorrow' ? 'tomorrow' : start}`,
+				habit.private && !this.#isHidden(habit) && 'private', // a hidden one shows it anyway
+			].filter(Boolean);
+			return { ...this.#item(habit), days: habit.days, tags };
+		});
 	}
 
 	/** "Today", "Tomorrow", or e.g. "Mon, 5 Oct". */
@@ -301,7 +312,10 @@ export class HabitController {
 		this.#views.sidebar.showProgress(done.length, total, { bump });
 	}
 
-	/** All done: celebrate. Half done (once a day, 4+ habits): a toast. */
+	/**
+	 * All done: celebrate. Half done (once a day, 4+ habits): a toast.
+	 * @returns {'all'|'half'|null} Which of them, if any.
+	 */
 	#cheerIfDeserved() {
 		const { total, done } = this.#store.entry(this.#day);
 		if (total > 0 && done.length === total) {
@@ -311,19 +325,29 @@ export class HabitController {
 				const entry = this.#store.entry(day);
 				if (day === this.#day && entry && entry.total > 0 && entry.done.length === entry.total) this.#celebrate();
 			}, this.#config.timing.celebrateDelayMs);
-		} else if (total >= 4 && done.length === Math.ceil(total / 2) && this.#halfwayShownOn !== this.#day) {
-			this.#halfwayShownOn = this.#day;
-			this.#views.toast.show(say(messages.halfway), { duration: this.#toastMs.short });
+			return 'all';
 		}
+		if (total >= 4 && done.length === Math.ceil(total / 2) && this.#halfwayShownOn !== this.#day) {
+			this.#halfwayShownOn = this.#day;
+			this.#views.toast.show(say(messages.halfway), { duration: 'short' });
+			return 'half';
+		}
+		return null;
 	}
 
+	/** Everything done: the cards hop, the date bounces, confetti. Early in the morning, a sunrise version. */
 	#celebrate() {
 		const { today, sidebar, toast, confetti } = this.#views;
+		const earlyBird = this.#playful.isEarlyBird(new Date());
 		today.cheer();
-		sidebar.cheer();
+		if (earlyBird) sidebar.sunrise();
+		else sidebar.cheer();
 		const streak = this.#store.streak(this.#day);
-		toast.show(say(messages.allDone) + (streak > 1 ? ` ${say(messages.streak, streak)}` : ''), { duration: this.#toastMs.long });
-		if (!prefersReducedMotion()) confetti.burst();
+		const remark = say(earlyBird ? messages.earlyBird : messages.allDone);
+		toast.show(remark + (streak > 1 ? ` ${say(messages.streak, streak)}` : ''), { duration: 'long' });
+		if (prefersReducedMotion()) return;
+		const sunColors = SUNRISE_COLORS.filter((color) => this.#config.colors.includes(color));
+		confetti.burst(earlyBird && sunColors.length ? sunColors : undefined);
 	}
 }
 

@@ -18,7 +18,6 @@ export class SessionController {
 	#logoutConfirm;
 	#toast;
 	#timing;
-	#toastMs;
 	#onChange;
 
 	/**
@@ -33,7 +32,6 @@ export class SessionController {
 	 * @param {import('../views/sheets/confirm_sheet/confirm_sheet.js').ConfirmSheet} options.logoutConfirm For "Log out?".
 	 * @param {import('../views/overlays/toast/toast.js').Toast} options.toast
 	 * @param {{logoutAfterMs: number, logoutConfirmMs: number}} options.timing
-	 * @param {{short: number, long: number}} options.toastMs How long toasts stay.
 	 * @param {(loggedIn: boolean) => void} options.onChange After logging in or out (and after a PIN reset).
 	 */
 	constructor(options) {
@@ -47,15 +45,10 @@ export class SessionController {
 		this.#logoutConfirm = options.logoutConfirm;
 		this.#toast = options.toast;
 		this.#timing = options.timing;
-		this.#toastMs = options.toastMs;
 		this.#onChange = options.onChange;
 
 		this.#session.addEventListener('change', () => this.#sessionChanged());
 		this.#idle.addEventListener('activity', () => this.#showIdleTimer());
-	}
-
-	get loggedIn() {
-		return this.#session.loggedIn;
 	}
 
 	/** Shows the lock button's state. Call once after loading. */
@@ -63,9 +56,12 @@ export class SessionController {
 		this.#showLockState();
 	}
 
-	/** Runs `then` once logged in, asking for the PIN (or setting one up) first if needed. */
-	requireLogin(origin, then) {
-		this.#pinPad.ask({ origin, then });
+	/**
+	 * Runs `then` once logged in, asking for the PIN (or setting one up) first if needed.
+	 * `onCancel` runs if the PIN pad is cancelled instead (e.g. to go back where it was asked).
+	 */
+	requireLogin(origin, then, onCancel) {
+		this.#pinPad.ask({ origin, then, onCancel });
 	}
 
 	/** The lock button: log in, or ask to log out. */
@@ -90,7 +86,7 @@ export class SessionController {
 			onYes: () => {
 				const removed = this.#session.resetPin();
 				this.#store.save();
-				this.#toast.show(removed ? `PIN reset. ${plural(removed, 'private habit')} deleted` : 'PIN reset', { duration: this.#toastMs.long });
+				this.#toast.show(removed ? `PIN reset. ${plural(removed, 'private habit')} deleted` : 'PIN reset', { duration: 'long' });
 			},
 		});
 	}
@@ -99,7 +95,8 @@ export class SessionController {
 	tick() {
 		this.#showIdleTimer();
 		this.#pinPad.tick();
-		if (this.#session.loggedIn && this.#idle.idleMs > this.#timing.logoutAfterMs && !this.#logoutConfirm.isOpen) {
+		const idleTooLong = this.#idle.idleMs > this.#timing.logoutAfterMs;
+		if (this.#session.loggedIn && !this.#session.loggingOut && idleTooLong && !this.#logoutConfirm.isOpen) {
 			this.#askLogout();
 		}
 	}
@@ -113,9 +110,9 @@ export class SessionController {
 			countdownMs: this.#timing.logoutConfirmMs,
 			countdownNote: (seconds) => `Logging out in ${seconds}s`,
 			origin,
-			onYes: () => {
-				this.#session.logout();
-				this.#toast.show(say(messages.loggedOut), { duration: this.#toastMs.short });
+			onYes: async () => {
+				await this.#session.logout();
+				this.#toast.show(say(messages.loggedOut), { duration: 'short' });
 			},
 		});
 	}

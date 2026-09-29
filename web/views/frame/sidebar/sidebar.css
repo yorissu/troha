@@ -81,3 +81,28 @@
 	font-weight: 500;
 	font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Easter eggs that go by the clock (controllers/playful_controller.js) ---------- */
+
+/* Early bird: the day number sinks below the horizon, comes up glowing warm, and bounces. */
+.day-number.sunrise {
+	transform-origin: center bottom;
+	animation: day-sunrise 1.4s ease-out;
+}
+
+@keyframes day-sunrise {
+	0%   { transform: none; }
+	18%  { transform: translateY(1.5rem) scale(.92); opacity: .4; }
+	50%  { transform: translateY(-.9rem) scale(1.06); opacity: 1; text-shadow: 0 0 2.5rem var(--butter-edge), 0 0 1rem var(--peach-edge); }
+	72%  { transform: translateY(.25rem) scale(.99); text-shadow: 0 0 1.5rem var(--butter-edge); }
+	100% { transform: none; text-shadow: none; }
+}
+
+/* Make a wish: the clock twinkles twice. */
+.clock.shimmer { animation: clock-shimmer 1.6s ease-in-out; }
+
+@keyframes clock-shimmer {
+	0%, 100% { text-shadow: none; }
+	20%, 60% { text-shadow: 0 0 1.25rem var(--progress), 0 0 .3rem var(--progress); }
+	40%, 80% { text-shadow: none; }
+}

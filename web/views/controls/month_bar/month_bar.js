@@ -22,10 +22,12 @@ export class MonthBar extends Component {
 	 * @param {string} options.locale
 	 * @param {(step: number) => void} options.onShift An arrow was tapped: -1 back, 1 on.
 	 * @param {string} [options.className] Extra classes; the owner's CSS lays the bar out.
+	 * @param {() => void} [options.onLabelTap] The month's name was tapped.
 	 */
-	constructor({ locale, onShift, className = '' }) {
+	constructor({ locale, onShift, className = '', onLabelTap }) {
 		super(h('div', { className: `month-bar ${className}`.trim() }));
 		this.#locale = locale;
+		if (onLabelTap) this.#label.addEventListener('click', onLabelTap);
 		this.#previous = arrow('chevron_left', 'Previous month', () => onShift(-1));
 		const next = arrow('chevron_right', 'Next month', () => onShift(1));
 		this.element.append(this.#previous.element, this.#label, next.element);

@@ -46,7 +46,9 @@ export const config = {
 		undoMs: 6 * 1000,             // how long "Undo" stays offered after deleting a habit or clearing days
 		saveDelayMs: 600,             // typing a name saves after this pause
 		celebrateDelayMs: 400,        // let the last card's wiggle finish before celebrating
-		loadRetryMs: 5 * 1000,        // retry loading if the server isn't up yet
+		loadRetryMs: 5 * 1000,        // retry loading if the server can't read the data file
+		serverCheckMs: 1000,          // check this often that the server still answers
+		serverTimeoutMs: 10 * 1000,   // a request not answered in this long means the server is down
 	},
 
 	/** How long messages at the bottom (toasts) stay, in milliseconds, by length of message. */
@@ -59,5 +61,10 @@ export const config = {
 		offendedGapMs: 1200, // an empty calendar day forgets taps further apart than this
 		shakeFromTap: 3,     // it wobbles at first, and shakes from this tap on...
 		heyAtTap: 5,         // ...and says "hey!" at this one
+		waveTaps: 3,         // quick taps on the Calendar's month name that send a wave across the days...
+		waveGapMs: 700,      // ...each within this long of the one before
+		wishTimes: ['11:11', '22:22'],                // the clock shimmers: "make a wish" (once a day at each)
+		nightOwl: { from: '00:00', until: '04:00' },  // a habit ticked then gets a sleepy remark (once a night)
+		earlyBird: { from: '04:00', until: '08:00' }, // everything done then: a sunrise celebration
 	},
 };

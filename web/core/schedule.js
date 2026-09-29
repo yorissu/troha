@@ -11,7 +11,7 @@
 import { toKey, fromKey, isoWeekday, weeksBetween } from './dates.js';
 
 /** True if `habit` is due on `date`. */
-export function isScheduled(habit, date) {
+function isScheduled(habit, date) {
 	if (toKey(date) < habit.startDate) return false; // hasn't started yet
 	if (!habit.days.includes(isoWeekday(date))) return false;
 	const weeks = weeksBetween(fromKey(habit.startDate), date);
@@ -38,6 +38,11 @@ export function describeSchedule(habit, dayNames) {
 	else if (pattern === '67') text = 'Weekends';
 	else text = days.map((day) => dayNames[day - 1]).join(', ');
 
-	if (habit.everyWeeks > 1) text += ` · every ${habit.everyWeeks} weeks`;
-	return text;
+	const repeat = repeatText(habit);
+	return repeat ? `${text} · ${repeat}` : text;
+}
+
+/** "every 2 weeks" for a habit that skips weeks; null for a weekly one. */
+export function repeatText(habit) {
+	return habit.everyWeeks > 1 ? `every ${habit.everyWeeks} weeks` : null;
 }

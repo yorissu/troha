@@ -5,13 +5,15 @@
  * Clear mode (the Clear button): days with counters jiggle, and tapping one reports
  * it through onDayTap so the controller can remove it.
  *
- * Easter egg: an empty day tapped again and again gets offended: a wobble, then a
- * harder shake, then a little remark like "hey!".
+ * Easter eggs: an empty day tapped again and again gets offended: a wobble, then a
+ * harder shake, then a little remark like "hey!". And a few quick taps on the month's
+ * name send a wave across the days.
  */
 
 import { h, replayAnimation, svg } from '../../../core/dom.js';
-import { pickOne } from '../../../core/text.js';
-import { addDays, firstOfMonth, fromKey, isoWeekday, mondayOf, shiftMonth, toKey } from '../../../core/dates.js';
+import { pickOne, plural } from '../../../core/text.js';
+import { QuickTaps } from '../../../core/taps.js';
+import { calendarDays, firstOfMonth, fromKey, isoWeekday, shiftMonth, toKey, weeksInMonth } from '../../../core/dates.js';
 import { Component } from '../../base/component/component.js';
 import { MonthBar, weekdayRow } from '../../controls/month_bar/month_bar.js';
 import { ClearButton } from '../../controls/clear_button/clear_button.js';
@@ -20,7 +22,8 @@ const RING_RADIUS = 40;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 const CLEAR_OUT_MS = 350; // length of the .cleared animation in calendar_view.css
 const HEY_MS = 1600;      // length of the "hey!" (see calendar_view.css)
-const OFFENDED_ANIMATIONS = ['miffed', 'offended'];
+const WAVE_STEP_MS = 45;  // the wave reaches each next diagonal of days this much later
+const DAY_ANIMATIONS = ['miffed', 'offended', 'wave'];
 
 export class CalendarView extends Component {
 	#source;
@@ -33,7 +36,8 @@ export class CalendarView extends Component {
 	#streak = h('div', { className: 'streak' });
 	#clearButton;
 	#grid = h('div', { className: 'calendar-grid' });
-	#offended = { cell: null, taps: 0, lastTap: 0 }; // the empty day being tapped
+	#offendedTaps; // quick taps on one empty day
+	#monthTaps;    // quick taps on the month's name
 
 	/**
 	 * @param {object} options
@@ -45,7 +49,8 @@ export class CalendarView extends Component {
 	 * @param {() => number} options.source.streak
 	 * @param {(element: HTMLElement) => void} options.onClearTap The Clear button.
 	 * @param {(day: string, cell: HTMLElement) => void} options.onDayTap A day with counters, tapped in clear mode.
-	 * @param {{offendedGapMs: number, shakeFromTap: number, heyAtTap: number}} options.playful The easter egg's tuning.
+	 * @param {{offendedGapMs: number, shakeFromTap: number, heyAtTap: number, waveTaps: number, waveGapMs: number}} options.playful
+	 *   The easter eggs' tuning.
 	 * @param {string[]} options.heyRemarks What the offended day says (one at random, like "hey!").
 	 */
 	constructor({ locale, dayNames, source, onClearTap, onDayTap, playful, heyRemarks }) {
@@ -53,17 +58,23 @@ export class CalendarView extends Component {
 		this.#source = source;
 		this.#onDayTap = onDayTap;
 		this.#playful = playful;
+		this.#offendedTaps = new QuickTaps(playful.offendedGapMs);
+		this.#monthTaps = new QuickTaps(playful.waveGapMs);
 		this.#heyRemarks = heyRemarks;
 		this.#clearButton = new ClearButton({ onTap: onClearTap });
-		this.#monthBar = new MonthBar({ locale, className: 'calendar-bar', onShift: (step) => this.#shift(step) });
+		this.#monthBar = new MonthBar({
+			locale,
+			className: 'calendar-bar',
+			onShift: (step) => this.#shift(step),
+			onLabelTap: () => this.#tapMonthName(),
+		});
 		this.#monthBar.element.append(this.#streak, this.#clearButton.element);
 		this.element.append(this.#monthBar.element, weekdayRow(dayNames, 'calendar-weekdays'), this.#grid);
 	}
 
-	/** Shows the month that contains `day`. */
-	showMonthOf(day) {
+	/** Goes to the month that contains `day` (shown by the next render()). */
+	goToMonthOf(day) {
 		this.#month = firstOfMonth(fromKey(day));
-		this.render();
 	}
 
 	render() {
@@ -72,13 +83,10 @@ export class CalendarView extends Component {
 		const month = this.#month;
 		this.#monthBar.show(month);
 
-		const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-		const weeks = Math.ceil((isoWeekday(month) - 1 + daysInMonth) / 7);
-		const firstCell = mondayOf(month);
+		const weeks = weeksInMonth(month);
 		this.#grid.style.setProperty('--weeks', weeks);
 
-		this.#grid.replaceChildren(...Array.from({ length: weeks * 7 }, (_, i) => {
-			const date = addDays(firstCell, i);
+		this.#grid.replaceChildren(...calendarDays(month, weeks).map((date, i) => {
 			const key = toKey(date);
 			const entry = this.#source.entry(key);
 			const hasHabits = key <= today && entry?.total > 0;
@@ -92,13 +100,15 @@ export class CalendarView extends Component {
 			cell.classList.toggle('future', key > today);
 			cell.classList.toggle('today', key === today);
 			cell.classList.toggle('has-counter', hasHabits);
-			if (hasHabits) cell.addEventListener('click', () => { if (this.#clearing) this.#onDayTap(key, cell); });
+			if (hasHabits) cell.addEventListener('click', () => {
+				if (this.#clearing && !cell.classList.contains('cleared')) this.#onDayTap(key, cell); // not while it's going
+			});
 			else cell.addEventListener('click', () => this.#tapEmptyDay(cell));
 			return cell;
 		}));
 
 		const streak = this.#source.streak();
-		this.#streak.textContent = streak ? `${streak} perfect ${streak === 1 ? 'day' : 'days'} in a row` : '';
+		this.#streak.textContent = streak ? `${plural(streak, 'perfect day')} in a row` : '';
 	}
 
 	/** Turns clear mode on or off (the Clear button lights up, days with counters jiggle). */
@@ -123,20 +133,26 @@ export class CalendarView extends Component {
 	/** An empty day tapped: each quick tap in a row offends it a little more. */
 	#tapEmptyDay(cell) {
 		if (this.#clearing) return;
-		const { offendedGapMs, shakeFromTap, heyAtTap } = this.#playful;
-		const now = performance.now();
-		const offended = this.#offended;
-		const again = offended.cell === cell && now - offended.lastTap < offendedGapMs;
-		offended.taps = again ? offended.taps + 1 : 1;
-		offended.cell = cell;
-		offended.lastTap = now;
-		replayAnimation(cell, offended.taps < shakeFromTap ? 'miffed' : 'offended', OFFENDED_ANIMATIONS);
-		if (offended.taps < heyAtTap) return;
-		offended.taps = 0;
+		const { shakeFromTap, heyAtTap } = this.#playful;
+		const taps = this.#offendedTaps.tap(cell);
+		replayAnimation(cell, taps < shakeFromTap ? 'miffed' : 'offended', DAY_ANIMATIONS);
+		if (taps < heyAtTap) return;
+		this.#offendedTaps.reset();
 		cell.querySelector('.calendar-hey')?.remove();
 		const hey = h('span', { className: 'calendar-hey', text: pickOne(this.#heyRemarks) });
 		cell.append(hey);
 		setTimeout(() => hey.remove(), HEY_MS);
+	}
+
+	/** The month's name tapped: enough quick taps send a wave across the days, from the top left. */
+	#tapMonthName() {
+		if (this.#monthTaps.tap() < this.#playful.waveTaps) return;
+		this.#monthTaps.reset();
+		[...this.#grid.children].forEach((cell, i) => {
+			const diagonal = (i % 7) + Math.floor(i / 7);
+			cell.style.setProperty('--wave-delay', `${diagonal * WAVE_STEP_MS}ms`);
+			replayAnimation(cell, 'wave', DAY_ANIMATIONS);
+		});
 	}
 
 	#shift(step) {

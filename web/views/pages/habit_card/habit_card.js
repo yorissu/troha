@@ -19,7 +19,7 @@ export class HabitCard extends Component {
 	 * @param {object} options
 	 * @param {string} options.id Habit id.
 	 * @param {string} options.colorClass e.g. "c-mint".
-	 * @param {number} options.index Position, for the staggered pop-in.
+	 * @param {number} options.index Position, for the staggered rise-in.
 	 * @param {(card: HabitCard) => void} options.onTap
 	 */
 	constructor({ id, colorClass, index, onTap }) {

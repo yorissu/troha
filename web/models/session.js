@@ -17,6 +17,7 @@ export class Session extends EventTarget {
 	#privateNames;
 	#pinConfig;
 	#loggedIn = false;
+	#loggingOut = false; // saving before logging out (see logout)
 
 	/**
 	 * @param {object} options
@@ -32,6 +33,7 @@ export class Session extends EventTarget {
 	}
 
 	get loggedIn() { return this.#loggedIn; }
+	get loggingOut() { return this.#loggingOut; }
 	get hasPin() { return this.#store.security.pin !== null; }
 
 	/**
@@ -100,8 +102,15 @@ export class Session extends EventTarget {
 		return 'ok';
 	}
 
-	logout() {
-		if (!this.#loggedIn) return;
+	/** Logs out: saves first (a change still waiting to be saved needs the key), then forgets the key and the names. */
+	async logout() {
+		if (!this.#loggedIn || this.#loggingOut) return;
+		this.#loggingOut = true;
+		try {
+			await this.#store.save();
+		} finally {
+			this.#loggingOut = false;
+		}
 		this.#privateNames.lock(this.#store.habits);
 		this.#setLoggedIn(false);
 	}

@@ -2,6 +2,7 @@
 /**
  * Settings view. Changes apply right away (there is no Save button).
  *
+ *   Tutorial       a walk through Troha (the tour)
  *   Data file      the file the habits and settings are kept in (in the data folder);
  *                  tap it to switch to another or start a new one
  *   Night and sleep   side by side: the night (the Auto theme turns dark),
@@ -45,8 +46,9 @@ export class SettingsView extends Component {
 	 * @param {(element: HTMLElement) => void} options.onPickFile The data file tapped.
 	 * @param {{order: string[], labels: Object<string, string>}} options.motionChoices The Motion choices, in order.
 	 * @param {(choice: string) => void} options.onPickMotion A Motion choice tapped.
+	 * @param {() => void} options.onStartTour "Take the tour" tapped.
 	 */
-	constructor({ locale, onPickRangeTime, onSyncClock, onPickDate, onPickTime, onPickFile, motionChoices, onPickMotion }) {
+	constructor({ locale, onPickRangeTime, onSyncClock, onPickDate, onPickTime, onPickFile, motionChoices, onPickMotion, onStartTour }) {
 		super(h('section', { className: 'view settings-view scroll-area', hidden: true }));
 		this.#locale = locale;
 		this.#motionChoices = motionChoices;
@@ -67,8 +69,13 @@ export class SettingsView extends Component {
 		this.#dateButton = new PickButton({ icon: 'calendar', onTap: onPickDate });
 		this.#timeButton = timeButton(onPickTime);
 		this.#fileButton = new PickButton({ icon: 'file', onTap: onPickFile });
+		const tourButton = new Button({ className: 'button primary', label: 'Take the tour', onTap: onStartTour });
 
 		this.element.append(
+			h('div', { className: 'settings-section' },
+				h('h2', { text: 'Tutorial' }),
+				h('div', { className: 'settings-row' }, tourButton.element),
+				h('p', { className: 'note', text: 'A one-minute walk through Troha: setting your PIN, the views, and what every button does.' })),
 			h('div', { className: 'settings-section' },
 				h('h2', { text: 'Data file' }),
 				h('div', { className: 'settings-row' }, this.#fileButton.element),

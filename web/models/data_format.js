@@ -17,9 +17,10 @@
  * the rest of the app can rely on this shape.
  */
 
+import { fromKey, toKey } from '../core/dates.js';
 import { CHOICES, TIME_RANGES, fitSleepIntoNight, validChoice } from './settings.js';
 
-export const MAX_EVERY_WEEKS = 52;
+const MAX_EVERY_WEEKS = 52;
 const FALLBACK_START = '2000-01-03'; // a Monday, long ago: "has always been on"
 
 /** Habit colours by their old names, from before the palette was reworked. */
@@ -63,15 +64,13 @@ export function emptySecurity() {
 }
 
 /** True for a real calendar day written as "YYYY-MM-DD" (not e.g. "2026-02-31"). */
-export function isDayKey(value) {
-	if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-	const [year, month, day] = value.split('-').map(Number);
-	const date = new Date(year, month - 1, day);
-	return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+function isDayKey(value) {
+	// An impossible day (e.g. 31 February) rolls over into the next month, so it comes back different.
+	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && toKey(fromKey(value)) === value;
 }
 
 /** True for a time of day written as "HH:MM" (00:00 to 23:59). */
-export function isTime(value) {
+function isTime(value) {
 	return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 

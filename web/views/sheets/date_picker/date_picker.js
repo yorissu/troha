@@ -4,7 +4,7 @@
  */
 
 import { h } from '../../../core/dom.js';
-import { addDays, firstOfMonth, fromKey, mondayOf, shiftMonth, toKey } from '../../../core/dates.js';
+import { calendarDays, firstOfMonth, fromKey, shiftMonth, toKey } from '../../../core/dates.js';
 import { Sheet } from '../../base/sheet/sheet.js';
 import { Button } from '../../base/button/button.js';
 import { MonthBar, weekdayRow } from '../../controls/month_bar/month_bar.js';
@@ -39,7 +39,7 @@ export class DatePicker extends Sheet {
 	 * @param {string} request.today
 	 * @param {Element} [request.origin]
 	 * @param {(day: string) => void} request.onPick
-	 * @param {() => void} request.onCancel
+	 * @param {() => void} [request.onCancel] Default: just close.
 	 */
 	pick(request) {
 		this.#request = request;
@@ -58,9 +58,7 @@ export class DatePicker extends Sheet {
 		this.#monthBar.show(month, { canGoBack: month > firstOfMonth(fromKey(earliest)) });
 
 		// Always 6 weeks, so the pop-up keeps its size from month to month.
-		const firstCell = mondayOf(month);
-		this.#grid.replaceChildren(...Array.from({ length: 42 }, (_, i) => {
-			const date = addDays(firstCell, i);
+		this.#grid.replaceChildren(...calendarDays(month, 6).map((date) => {
 			const key = toKey(date);
 			const day = h('button', {
 				className: 'picker-day squish',
@@ -87,6 +85,7 @@ export class DatePicker extends Sheet {
 	}
 
 	#cancel() {
-		this.#request.onCancel();
+		if (this.#request.onCancel) this.#request.onCancel();
+		else this.close();
 	}
 }

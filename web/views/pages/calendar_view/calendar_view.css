@@ -43,6 +43,20 @@
 .calendar-day.outside { visibility: hidden; }
 .calendar-day.weekend { background: var(--weekend-fill); } /* Saturday and Sunday: a shade deeper */
 
+/* ---------- Easter egg: a wave across the days (the month's name tapped a few times) ---------- */
+
+/* Each day hops up and back in turn (--wave-delay, set in calendar_view.js). Up and down
+   only, by less than the gap ÷ 1.3, so neighbours never touch. */
+.calendar-day.wave {
+	animation: day-wave .55s ease-in-out both;
+	animation-delay: var(--wave-delay, 0ms);
+}
+
+@keyframes day-wave {
+	40% { transform: translateY(-.6rem); }
+	75% { transform: translateY(.15rem); }
+}
+
 /* ---------- Easter egg: an empty day tapped again and again ---------- */
 
 .calendar-day { position: relative; } /* for the "hey!" */

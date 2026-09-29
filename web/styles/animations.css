@@ -1,13 +1,6 @@
 
 /* Animations shared by several views. View-specific ones live next to their view. */
 
-/* Something popping up on its own, free to grow past its edges (the toast). Items in
-   a list or grid use rise-in below, which stays inside their column. */
-@keyframes pop-in {
-	from { transform: scale(.6) translateY(1.25rem); opacity: 0; }
-	to   { transform: none; opacity: 1; }
-}
-
 /* Items rising into place in a list or grid, with a bounce (use with animation-delay
    for a stagger). They only move up and down, never sideways or bigger, so they stay
    inside their column. They start --rise below their place, bounce up to 0.3 × --rise
