@@ -1,0 +1,25 @@
+
+/* Night shade (see night_shade.js): black over everything, as dark as its opacity. */
+
+.night-shade {
+	position: absolute;
+	inset: 0;
+	background: #000;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 2s ease;
+}
+
+/* Going black is slow and gentle; waking up is quick. */
+.night-shade.blank {
+	transition-duration: 4s;
+}
+
+.night-shade.waking {
+	transition-duration: .6s;
+}
+
+.night-shade.blank,
+.night-shade.waking {
+	pointer-events: auto;
+}

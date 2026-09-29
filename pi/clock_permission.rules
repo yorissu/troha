@@ -1,0 +1,12 @@
+
+// Lets Troha's server set the clock (Settings -> Date and time) without typing a
+// password. Nothing else is allowed by this file. The server runs as a service,
+// outside the desktop session, so it's allowed for users in the sudo group (who
+// could change the clock anyway), such as the Pi's desktop user.
+// Installed by pi/install.sh as /etc/polkit-1/rules.d/50-troha-clock.rules.
+polkit.addRule(function (action, subject) {
+	var clockActions = ["org.freedesktop.timedate1.set-time", "org.freedesktop.timedate1.set-ntp"];
+	if (clockActions.indexOf(action.id) >= 0 && subject.isInGroup("sudo")) {
+		return polkit.Result.YES;
+	}
+});

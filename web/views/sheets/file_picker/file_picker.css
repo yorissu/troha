@@ -1,0 +1,131 @@
+
+/* File picker (see file_picker.js): name field, then the files, fuzzy-filtered. */
+
+.file-picker {
+	width: 64rem;
+}
+
+.file-picker h2 {
+	margin-bottom: 1.5rem;
+}
+
+/* A message inside the field, on its right (so nothing moves when it shows). */
+.field-with-hint {
+	position: relative;
+}
+
+.field-with-hint:has(.field-hint:not([hidden])) .text-input {
+	padding-right: 30rem; /* typing stays clear of the message */
+}
+
+.field-hint {
+	position: absolute;
+	top: 50%;
+	right: 1.75rem;
+	translate: 0 -50%;
+	font-size: 1.625rem;
+	color: var(--error);
+	pointer-events: none;
+}
+
+/* The list (a scroll area, styles/layout.css) keeps a steady height; it gives way
+   when the keyboard is up. */
+.sheet > .file-list {
+	flex-shrink: 1;
+	display: flex;
+	flex-direction: column;
+	gap: .75rem;
+	--rise: .55rem;        /* rows rise in: under the gap ÷ 1.3, so they never overlap */
+	--bounce-room: .5rem;  /* room above for the first row's bounce */
+	height: 30rem;
+	min-height: 5.5rem; /* one row */
+	margin-top: calc(1.5rem - var(--bounce-room));
+}
+
+/* While typing, the hint makes way, so Create stays in view above the keyboard. */
+.keyboard-open .file-picker .note {
+	display: none;
+}
+
+/* A row: the file (tap to use it) and, for the others, a bin button to delete it. */
+.file-row {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	min-height: 5.5rem;
+	padding-right: .75rem;
+	border-radius: 1.5rem;
+	background: var(--muted-fill);
+	animation: rise-in .4s ease-out both;
+	animation-delay: var(--delay, 0ms);
+}
+
+.file-open {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	align-self: stretch;
+	gap: 1.5rem;
+	min-width: 0;
+	padding: 0 2rem;
+	background: none;
+	color: inherit;
+	font-size: 2rem;
+	text-align: left;
+}
+
+.file-open:active {
+	transform: scale(.98);
+}
+
+.file-delete {
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 4.25rem;
+	height: 4.25rem;
+	border-radius: 1.25rem;
+	background: var(--danger);
+	color: var(--danger-text);
+}
+
+.file-delete .icon {
+	width: 2.25rem;
+	height: 2.25rem;
+}
+
+.file-row.in-use {
+	background: var(--selected);
+	color: var(--selected-text);
+}
+
+.file-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Matched letters: bold and underlined, no highlighter colour. */
+.file-name mark {
+	background: none;
+	color: inherit;
+	font-weight: 600;
+	text-decoration: underline;
+	text-decoration-thickness: .2rem;
+	text-underline-offset: .35rem;
+}
+
+.file-tag {
+	font-size: 1.5rem;
+	opacity: .8;
+	padding-right: 1.25rem;
+}
+
+.file-empty {
+	margin: auto;
+	font-size: 1.875rem;
+	color: var(--text-soft);
+	text-align: center;
+}

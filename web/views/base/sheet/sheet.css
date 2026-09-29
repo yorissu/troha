@@ -1,0 +1,76 @@
+
+/* Pop-up sheets and their overlay (see sheet.js). */
+
+.overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 2.5rem; /* sheets sit high, so the on-screen keyboard doesn't cover them */
+	background: var(--backdrop);
+	animation: fade-in .25s both;
+}
+
+.overlay.closing {
+	animation: fade-out .35s .1s both;
+	pointer-events: none;
+}
+
+.sheet {
+	display: flex;
+	flex-direction: column;
+	width: 76rem;
+	max-height: calc(100% - 2.5rem); /* stays inside the stage; long content scrolls */
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding: 2.5rem 3.5rem;
+	border-radius: 2.5rem;
+	background: var(--surface);
+	/* sheet.js sets transform-origin to the tapped element, so the sheet grows out of it */
+	animation: grow-in .6s var(--spring) both;
+	transition: var(--fade);
+}
+
+.sheet h2 { font-size: 2.75rem; }
+
+/* Contents rise in one after another (sheet.js numbers them with --i). */
+.sheet > * {
+	flex-shrink: 0;
+	animation: rise .5s var(--spring) both;
+	animation-delay: calc(80ms + var(--i, 0) * 30ms);
+}
+
+.sheet-actions {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-top: 2rem;
+}
+
+/* Closing: shrink back toward where it came from. Deleting: tip over and drop. */
+.sheet.leaving { animation: shrink-out .3s cubic-bezier(.5, 0, .75, 0) both; }
+.sheet.poof { animation: poof .45s cubic-bezier(.5, -0.4, .7, .4) both; }
+
+@keyframes grow-in {
+	from { transform: scale(.1); opacity: 0; }
+	35% { opacity: 1; }
+}
+
+@keyframes shrink-out {
+	to { transform: scale(.1); opacity: 0; }
+}
+
+@keyframes poof {
+	30% { transform: scale(1.04) rotate(1.5deg); }
+	100% { transform: translateY(4rem) scale(.6) rotate(-9deg); opacity: 0; }
+}
+
+@keyframes rise {
+	from { transform: translateY(1.25rem); opacity: 0; }
+}
+
+/* Make room: sheets shrink to fit above the on-screen keyboard (they scroll if needed). */
+.keyboard-open .overlay {
+	padding-bottom: 28.5rem;
+}

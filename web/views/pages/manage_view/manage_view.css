@@ -1,0 +1,52 @@
+
+/* Manage view (see manage_view.js). */
+
+/* A scroll area (styles/layout.css). */
+.manage-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	align-content: start;
+	gap: 1.125rem;
+	--rise: .8rem;          /* rows rise in: under the gap ÷ 1.3, so they never overlap */
+	--bounce-room: .5rem;   /* room above for the first rows' bounce */
+	padding-bottom: 1rem;
+}
+
+.manage-row {
+	display: flex;
+	align-items: baseline;
+	gap: 1.5rem;
+	min-width: 0;
+	padding: 1.5rem 2.25rem;
+	border-radius: 1.75rem;
+	background: var(--c-fill);
+	color: var(--c-text);
+	text-align: left;
+	animation: rise-in .55s ease-out both;
+	animation-delay: var(--delay, 0ms);
+}
+
+.manage-name {
+	overflow: hidden;
+	font-size: 2rem;
+	font-weight: 500;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.manage-schedule {
+	flex-shrink: 0;
+	max-width: 50%;
+	margin-left: auto;
+	overflow: hidden;
+	font-size: 1.5rem;
+	color: var(--c-soft);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.manage-row .redacted {
+	align-self: center;
+	width: 13rem;
+	height: 1.6rem;
+}

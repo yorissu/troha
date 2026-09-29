@@ -1,0 +1,46 @@
+
+/* All styles, in order: the basics, then the components group by group (the same
+   groups as the folders in views/), each after the ones it builds on. */
+
+@import url("styles/fonts.css");
+@import url("styles/tokens.css");
+@import url("styles/base.css");
+@import url("styles/animations.css");
+@import url("styles/controls.css");
+@import url("styles/layout.css");
+
+/* Base: the pop-up sheet (Component and Button need no styles of their own). */
+@import url("views/base/sheet/sheet.css");
+
+/* Controls */
+@import url("views/controls/timeout_ring/timeout_ring.css");
+@import url("views/controls/lock_button/lock_button.css");
+@import url("views/controls/clear_button/clear_button.css");
+@import url("views/controls/cycle_button/cycle_button.css");
+@import url("views/controls/screen_button/screen_button.css");
+@import url("views/controls/month_bar/month_bar.css");
+@import url("views/controls/clock_dial/clock_dial.css");
+
+/* The frame around the pages */
+@import url("views/frame/sidebar/sidebar.css");
+@import url("views/frame/header/header.css");
+
+/* Pages */
+@import url("views/pages/habit_card/habit_card.css");
+@import url("views/pages/today_view/today_view.css");
+@import url("views/pages/calendar_view/calendar_view.css");
+@import url("views/pages/manage_view/manage_view.css");
+@import url("views/pages/settings_view/settings_view.css");
+
+/* Pop-up sheets */
+@import url("views/sheets/confirm_sheet/confirm_sheet.css");
+@import url("views/sheets/date_picker/date_picker.css");
+@import url("views/sheets/time_picker/time_picker.css");
+@import url("views/sheets/file_picker/file_picker.css");
+@import url("views/sheets/pin_pad/pin_pad.css");
+
+/* Overlays, over everything */
+@import url("views/overlays/on_screen_keyboard/on_screen_keyboard.css");
+@import url("views/overlays/confetti/confetti.css");
+@import url("views/overlays/toast/toast.css");
+@import url("views/overlays/night_shade/night_shade.css");

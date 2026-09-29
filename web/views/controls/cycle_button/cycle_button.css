@@ -1,0 +1,24 @@
+
+/* Cycle buttons next to the clock (see cycle_button.js): round, showing the current setting's icon. */
+
+.cycle-button {
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 5.5rem;
+	height: 5.5rem;
+	border-radius: 50%;
+	background: var(--panel-button);
+	color: var(--panel-text);
+}
+
+.cycle-icon {
+	display: none;
+	width: 3rem;
+	height: 3rem;
+}
+
+.cycle-icon.current {
+	display: block;
+	animation: spin-in .6s var(--spring) both;
+}

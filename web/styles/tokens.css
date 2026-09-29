@@ -1,0 +1,169 @@
+
+/* =====================================================================
+   Design tokens: colours, motion and shared sizes. Change the look here.
+   Each colour is set once per theme: the dark theme redefines the same
+   names below (html[data-theme="dark"]). Contrast: text at least 4.5:1,
+   outlines and bars at least 3:1 against what they sit on.
+   ===================================================================== */
+
+:root {
+	/* Neutrals */
+	--page: #F4F7FB;                /* page background */
+	--letterbox: #26303F;           /* bars around the app if the screen isn't 16:9 */
+	--backdrop: rgb(30 45 70 / .3); /* dims the screen behind pop-ups */
+	--surface: #FBFCFE;             /* pop-ups */
+	--muted-fill: #E6EDF4;          /* idle pills, empty calendar days */
+	--weekend-fill: #DAE4EE;        /* calendar days on Saturday and Sunday: a shade deeper */
+	--line: #DAE3EC;                /* calendar ring track */
+	--edge: #7990A9;                /* outlines: settings groups, active buttons */
+	--faint: #AEBCCB;               /* lightest marks */
+	--text: #23344A;                /* ink */
+	--text-soft: #526379;           /* notes and hints */
+
+	/* Sidebar: a shade apart from the page, same ink */
+	--panel: #E8EEF5;
+	--panel-text: var(--text);
+	--panel-soft: var(--text-soft);
+	--panel-button: #D6E1EC;
+	--progress-track: #D2DDE9;
+	--progress: #4A7EBA;            /* calm blue */
+
+	/* Buttons */
+	--primary: #34537A;
+	--primary-text: #FFFFFF;
+	--selected: var(--primary);
+	--selected-text: var(--primary-text);
+	--danger: var(--muted-fill);
+	--danger-text: var(--error);
+	--error: #B0493F;               /* invalid input, erasing, running out */
+
+	/* Scrollbars */
+	--scroll-thumb: #CBD6E1;
+	--scroll-thumb-active: #A7B7C8;
+
+	/* Habit colours. On the fill: text and secondary text. Outline. Straight on the
+	   page (done cards): ink and secondary ink. */
+	--blush-fill: #F7D4DA; --blush-text: #4F2229; --blush-soft: #774049; --blush-edge: #C77583;  /* soft pink */
+		--blush-ink: #4F2229; --blush-ink-soft: #774049;
+	--peach-fill: #FAE0D1; --peach-text: #4F3222; --peach-soft: #775440; --peach-edge: #C27B51;  /* warm apricot */
+		--peach-ink: #4F3222; --peach-ink-soft: #775440;
+	--butter-fill: #FAF0D1; --butter-text: #4F4422; --butter-soft: #776A40; --butter-edge: #A28A39;  /* pale yellow */
+		--butter-ink: #4F4422; --butter-ink-soft: #776A40;
+	--pistachio-fill: #E6F1DA; --pistachio-text: #384F22; --pistachio-soft: #57713D; --pistachio-edge: #759556;  /* fresh green */
+		--pistachio-ink: #384F22; --pistachio-ink-soft: #5C7740;
+	--mint-fill: #DBF0E9; --mint-text: #224F40; --mint-soft: #3D715F; --mint-edge: #5D9884;  /* cool green */
+		--mint-ink: #224F40; --mint-ink-soft: #407765;
+	--sky-fill: #D6E8F5; --sky-text: #223C4F; --sky-soft: #406077; --sky-edge: #6393B6;  /* clear blue */
+		--sky-ink: #223C4F; --sky-ink-soft: #406077;
+	--periwinkle-fill: #D7DBF4; --periwinkle-text: #22284F; --periwinkle-soft: #404877; --periwinkle-edge: #7E87BE;  /* blue-violet */
+		--periwinkle-ink: #22284F; --periwinkle-ink-soft: #404877;
+	--lilac-fill: #E7DAF1; --lilac-text: #3C224F; --lilac-soft: #604077; --lilac-edge: #A081B6;  /* soft purple */
+		--lilac-ink: #3C224F; --lilac-ink-soft: #604077;
+
+	/* Calendar rings, by share of habits done: stronger the more is done */
+	--ring-full: var(--progress);    /* all */
+	--ring-high: var(--text-soft);   /* most */
+	--ring-mid: var(--edge);         /* about half */
+	--ring-low: var(--faint);        /* few */
+
+	/* Motion */
+	--spring: cubic-bezier(.34, 1.8, .5, 1);       /* bouncy */
+	--spring-soft: cubic-bezier(.34, 1.35, .5, 1); /* gently bouncy */
+	--fade: background-color .6s, color .6s, border-color .6s; /* theme changes */
+
+	/* Shapes */
+	--radius: 1.875rem;
+	--scroll-gap: 1.2rem; /* between scrolling content and its scrollbar */
+}
+
+/* Colour classes: point the --c-* names at one palette colour. Habits use the
+   pastels; everything else uses .c-plain, the theme's own soft blues.
+   To add one: add its six colours in both theme blocks, a class here,
+   and its name to config.js. */
+.c-plain {
+	--c-fill: var(--muted-fill); --c-text: var(--text); --c-soft: var(--text-soft); --c-edge: var(--edge);
+	--c-ink: var(--text); --c-ink-soft: var(--text-soft);
+}
+.c-blush {
+	--c-fill: var(--blush-fill); --c-text: var(--blush-text); --c-soft: var(--blush-soft); --c-edge: var(--blush-edge);
+	--c-ink: var(--blush-ink); --c-ink-soft: var(--blush-ink-soft);
+}
+.c-peach {
+	--c-fill: var(--peach-fill); --c-text: var(--peach-text); --c-soft: var(--peach-soft); --c-edge: var(--peach-edge);
+	--c-ink: var(--peach-ink); --c-ink-soft: var(--peach-ink-soft);
+}
+.c-butter {
+	--c-fill: var(--butter-fill); --c-text: var(--butter-text); --c-soft: var(--butter-soft); --c-edge: var(--butter-edge);
+	--c-ink: var(--butter-ink); --c-ink-soft: var(--butter-ink-soft);
+}
+.c-pistachio {
+	--c-fill: var(--pistachio-fill); --c-text: var(--pistachio-text); --c-soft: var(--pistachio-soft); --c-edge: var(--pistachio-edge);
+	--c-ink: var(--pistachio-ink); --c-ink-soft: var(--pistachio-ink-soft);
+}
+.c-mint {
+	--c-fill: var(--mint-fill); --c-text: var(--mint-text); --c-soft: var(--mint-soft); --c-edge: var(--mint-edge);
+	--c-ink: var(--mint-ink); --c-ink-soft: var(--mint-ink-soft);
+}
+.c-sky {
+	--c-fill: var(--sky-fill); --c-text: var(--sky-text); --c-soft: var(--sky-soft); --c-edge: var(--sky-edge);
+	--c-ink: var(--sky-ink); --c-ink-soft: var(--sky-ink-soft);
+}
+.c-periwinkle {
+	--c-fill: var(--periwinkle-fill); --c-text: var(--periwinkle-text); --c-soft: var(--periwinkle-soft); --c-edge: var(--periwinkle-edge);
+	--c-ink: var(--periwinkle-ink); --c-ink-soft: var(--periwinkle-ink-soft);
+}
+.c-lilac {
+	--c-fill: var(--lilac-fill); --c-text: var(--lilac-text); --c-soft: var(--lilac-soft); --c-edge: var(--lilac-edge);
+	--c-ink: var(--lilac-ink); --c-ink-soft: var(--lilac-ink-soft);
+}
+
+/* ---------- Dark theme ---------------------------------------------- */
+
+:root[data-theme="dark"] {
+	--page: #172030;
+	--letterbox: #0C111A;
+	--backdrop: rgb(4 8 16 / .55);
+	--surface: #202B3D;
+	--muted-fill: #263244;
+	--weekend-fill: #2E3C51;
+	--line: #303D52;
+	--edge: #586F89;
+	--faint: #3C4B5D;
+	--text: #E2E9F2;
+	--text-soft: #A0AFC3;
+
+	--panel: #1B2535;
+	--panel-text: var(--text);
+	--panel-soft: var(--text-soft);
+	--panel-button: #283549;
+	--progress-track: #303E55;
+	--progress: #558DCE;
+
+	--primary: #AFC6E2;
+	--primary-text: #172030;
+	--selected: var(--primary);
+	--selected-text: var(--primary-text);
+	--danger: var(--muted-fill);
+	--danger-text: var(--error);
+	--error: #F09A8E;
+
+	--scroll-thumb: #324058;
+	--scroll-thumb-active: #4B5C77;
+
+	--blush-fill: #E0A4AE; --blush-text: #3D1A20; --blush-soft: #6B333D; --blush-edge: #DB95A0;
+		--blush-ink: #F1D0D5; --blush-ink-soft: #C78A94;
+	--peach-fill: #E4B9A0; --peach-text: #3D271A; --peach-soft: #674532; --peach-edge: #E0AD90;
+		--peach-ink: #F1DCD0; --peach-ink-soft: #C7A08A;
+	--butter-fill: #E4D4A0; --butter-text: #3D351A; --butter-soft: #645830; --butter-edge: #E0CD90;
+		--butter-ink: #F1E9D0; --butter-ink-soft: #C7B88A;
+	--pistachio-fill: #C2D5AF; --pistachio-text: #2B3D1A; --pistachio-soft: #455D2D; --pistachio-edge: #B8CEA1;
+		--pistachio-ink: #E0F1D0; --pistachio-ink-soft: #A8C78A;
+	--mint-fill: #B1D3C8; --mint-text: #1A3D31; --mint-soft: #2D5D4D; --mint-edge: #A4CCBE;
+		--mint-ink: #D0F1E6; --mint-ink-soft: #8AC7B2;
+	--sky-fill: #A8C6DC; --sky-text: #1A2E3D; --sky-soft: #325167; --sky-edge: #9ABDD6;
+		--sky-ink: #D0E3F1; --sky-ink-soft: #8AADC7;
+	--periwinkle-fill: #AAB1D9; --periwinkle-text: #1A1F3D; --periwinkle-soft: #353D6E; --periwinkle-edge: #9CA3D3;
+		--periwinkle-ink: #D0D4F1; --periwinkle-ink-soft: #8A92C7;
+	--lilac-fill: #C5AFD5; --lilac-text: #2E1A3D; --lilac-soft: #56356E; --lilac-edge: #BBA1CE;
+		--lilac-ink: #E3D0F1; --lilac-ink-soft: #AD8AC7;
+}

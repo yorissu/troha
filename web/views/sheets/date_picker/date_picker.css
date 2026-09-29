@@ -1,0 +1,37 @@
+
+/* Date picker (see date_picker.js). */
+
+.sheet-date { width: 54rem; }
+
+/* The month bar (MonthBar): arrows at the ends, the month in the middle. */
+.picker-bar {
+	justify-content: space-between;
+	margin-bottom: 1.25rem;
+}
+
+.picker-bar .month-label { font-size: 2.25rem; }
+
+.picker-weekdays {
+	gap: .75rem;
+	margin-bottom: .5rem;
+	font-size: 1.5rem;
+}
+
+.picker-grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: .75rem;
+}
+
+.picker-day {
+	height: 5.25rem;
+	border: .25rem solid transparent;
+	border-radius: 1.5rem;
+	background: var(--muted-fill);
+	font-size: 1.875rem;
+}
+
+.picker-day.outside { opacity: .45; }
+.picker-day.today { border-color: var(--text-soft); }
+.picker-day.selected { background: var(--selected); color: var(--selected-text); }
+.picker-day:disabled { opacity: .2; pointer-events: none; }

@@ -1,0 +1,19 @@
+
+# Troha's server, started at boot and started again if it stops.
+# pi/install.sh fills in @USER@ and @DIR@ and installs it as
+# /etc/systemd/system/troha.service.
+#   Status:  systemctl status troha
+#   Log:     journalctl -u troha
+
+[Unit]
+Description=Troha habit board server
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@
+ExecStart=/usr/bin/python3 -u @DIR@/server.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

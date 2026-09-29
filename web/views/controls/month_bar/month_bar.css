@@ -1,0 +1,20 @@
+
+/* Month bar and weekday row (see month_bar.js). Sizes and spacing come from the
+   owner (the Calendar or the date picker). */
+
+.month-bar {
+	display: flex;
+	align-items: center;
+}
+
+.month-label {
+	font-weight: 500;
+	text-align: center;
+}
+
+.weekday-row {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	color: var(--text-soft);
+	text-align: center;
+}

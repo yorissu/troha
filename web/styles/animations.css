@@ -1,0 +1,50 @@
+
+/* Animations shared by several views. View-specific ones live next to their view. */
+
+/* Something popping up on its own, free to grow past its edges (the toast). Items in
+   a list or grid use rise-in below, which stays inside their column. */
+@keyframes pop-in {
+	from { transform: scale(.6) translateY(1.25rem); opacity: 0; }
+	to   { transform: none; opacity: 1; }
+}
+
+/* Items rising into place in a list or grid, with a bounce (use with animation-delay
+   for a stagger). They only move up and down, never sideways or bigger, so they stay
+   inside their column. They start --rise below their place, bounce up to 0.3 × --rise
+   above it and settle, so two neighbours come at most 1.3 × --rise closer: keep
+   --rise under the gap between items ÷ 1.3 and they never overlap.
+   Use with a plain timing function (e.g. ease-out): the bounce is in the keyframes. */
+@keyframes rise-in {
+	from { transform: translateY(var(--rise, 1rem)); opacity: 0; }
+	55%  { transform: translateY(calc(var(--rise, 1rem) * -.3)); opacity: 1; animation-timing-function: ease-in-out; }
+	80%  { transform: translateY(calc(var(--rise, 1rem) * .08)); }
+	to   { transform: none; opacity: 1; }
+}
+
+/* An icon swapping in (theme and lock buttons). */
+@keyframes spin-in {
+	from { transform: rotate(-120deg) scale(.3); opacity: 0; }
+}
+
+/* A small grow-and-settle, e.g. a counter changing. */
+@keyframes bump {
+	40% { transform: scale(1.12); }
+}
+
+/* "No": a wrong PIN, a missing name... Add the class with replayAnimation(). */
+.shake { animation: shake .45s ease-in-out; }
+
+@keyframes shake {
+	20% { transform: translateX(-1.25rem); }
+	40% { transform: translateX(1rem); }
+	60% { transform: translateX(-.6rem); }
+	80% { transform: translateX(.3rem); }
+}
+
+@keyframes fade-in {
+	from { opacity: 0; }
+}
+
+@keyframes fade-out {
+	to { opacity: 0; }
+}

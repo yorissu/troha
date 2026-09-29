@@ -1,0 +1,20 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	<!-- The page may only load things from this local server. -->
+	<meta http-equiv="Content-Security-Policy"
+		  content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'">
+	<title>Troha</title>
+	<!-- No icon: this stops the browser asking the server for /favicon.ico (a 404). -->
+	<link rel="icon" href="data:,">
+	<link rel="stylesheet" href="main.css">
+	<script type="module" src="main.js"></script>
+</head>
+<body>
+	<!-- The app builds itself into this fixed 1920×1080 stage (see main.js). -->
+	<div class="stage" id="stage"></div>
+</body>
+</html>

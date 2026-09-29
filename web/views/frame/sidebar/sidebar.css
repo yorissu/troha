@@ -1,0 +1,83 @@
+
+/* Sidebar: date, progress and clock (see sidebar.js). */
+
+.sidebar {
+	display: flex;
+	flex-direction: column;
+	padding: 4rem 3.25rem;
+	background: var(--panel);
+	color: var(--panel-text);
+	transition: var(--fade);
+}
+
+.weekday { font-size: 2.75rem; color: var(--panel-soft); }
+.day-number { width: fit-content; font-size: 15rem; font-weight: 500; line-height: 1; margin: .5rem 0 .25rem; transform-origin: left bottom; }
+.month { font-size: 3rem; }
+.year { font-size: 2.25rem; color: var(--panel-soft); }
+
+.day-number.cheer { animation: day-bounce .8s var(--spring); }
+
+@keyframes day-bounce {
+	30% { transform: scale(1.12) rotate(-3deg); }
+	60% { transform: scale(.97) rotate(1deg); }
+}
+
+/* Easter egg: each quick tap jiggles the number, more with every tap (--nudge, 0 to 1,
+   set in sidebar.js)... */
+.day-number.nudge {
+	transform-origin: center;
+	animation: day-nudge .35s ease-in-out;
+}
+
+@keyframes day-nudge {
+	25% { transform: rotate(calc(var(--nudge, .2) * -10deg)) scale(calc(1 + var(--nudge, .2) * .08)); }
+	60% { transform: rotate(calc(var(--nudge, .2) * 7deg)); }
+	85% { transform: rotate(calc(var(--nudge, .2) * -3deg)); }
+}
+
+/* ...and the last one flips it right round, overshooting a little. */
+.day-number.flip {
+	transform-origin: center;
+	animation: day-flip .9s var(--spring-soft);
+}
+
+@keyframes day-flip {
+	from { transform: perspective(60rem) rotateY(0); }
+	to   { transform: perspective(60rem) rotateY(360deg); }
+}
+
+.sidebar-bottom { margin-top: auto; }
+
+.progress-label { font-size: 2.25rem; color: var(--panel-soft); transform-origin: left center; }
+.progress-label.bump { animation: bump .45s var(--spring); }
+
+.progress {
+	height: 1.375rem;
+	margin: .875rem 0 1.75rem;
+	overflow: hidden;
+	border-radius: 1rem;
+	background: var(--progress-track);
+	transition: var(--fade);
+}
+
+.progress-fill {
+	width: calc(var(--share, 0) * 100%);
+	height: 100%;
+	border-radius: inherit;
+	background: var(--progress);
+	transition: width .7s var(--spring-soft), background-color .6s;
+}
+
+/* The settings buttons, in a row under the clock, spread across the panel
+   (the panel's padding keeps them off its edges, in line with the progress bar). */
+.clock-buttons {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 1.25rem;
+}
+
+.clock {
+	font-size: 5.75rem;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}

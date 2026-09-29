@@ -1,0 +1,17 @@
+
+/* Lock button (see lock_button.js). One of three icons, picked by data-state. */
+
+.lock-button {
+	--timeout-color: var(--c-soft);
+}
+
+.lock-button .lock-icon {
+	display: none;
+}
+
+.lock-button[data-state="set"] .for-set,
+.lock-button[data-state="locked"] .for-locked,
+.lock-button[data-state="open"] .for-open {
+	display: block;
+	animation: spin-in .5s var(--spring) both;
+}

@@ -1,0 +1,44 @@
+
+/* Confirm sheet (see confirm_sheet.js). */
+
+.sheet-small {
+	width: 48rem;
+}
+
+/* A little "are you sure?" wobble after it grows in. */
+.sheet.confirm-sheet {
+	animation: grow-in .6s var(--spring) both, wobble .5s .45s ease-in-out;
+}
+
+.sheet.confirm-sheet.leaving { animation: shrink-out .3s cubic-bezier(.5, 0, .75, 0) both; }
+.sheet.confirm-sheet.poof { animation: poof .45s cubic-bezier(.5, -0.4, .7, .4) both; }
+
+@keyframes wobble {
+	25% { transform: rotate(-1.5deg); }
+	50% { transform: rotate(1.2deg); }
+	75% { transform: rotate(-.6deg); }
+}
+
+/* Countdown bar: drains over the countdown time (set in code). */
+.countdown {
+	height: .75rem;
+	margin-top: 1.75rem;
+	overflow: hidden;
+	border-radius: 1rem;
+	background: var(--muted-fill);
+}
+
+.countdown-fill {
+	height: 100%;
+	border-radius: inherit;
+	background: var(--progress);
+	transform-origin: left center;
+}
+
+.countdown-fill.draining {
+	animation: drain 10s linear both;
+}
+
+@keyframes drain {
+	to { transform: scaleX(0); }
+}

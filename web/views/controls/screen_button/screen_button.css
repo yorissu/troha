@@ -1,0 +1,6 @@
+
+/* Screen button (see screen_button.js): its border counts down to the screen going black. */
+
+.screen-button {
+	--timeout-color: var(--panel-text);
+}

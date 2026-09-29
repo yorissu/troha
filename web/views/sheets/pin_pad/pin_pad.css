@@ -1,0 +1,64 @@
+
+/* PIN pad (see pin_pad.js). */
+
+.sheet-pin { width: 44rem; }
+.sheet-pin h2, .sheet-pin .note { text-align: center; }
+
+.pin-dots {
+	display: flex;
+	justify-content: center;
+	gap: 1.25rem;
+	height: 2rem;
+	margin: 2rem 0 2.25rem;
+}
+
+.pin-dot {
+	width: 1.75rem;
+	height: 1.75rem;
+	border: .25rem solid var(--text-soft);
+	border-radius: 50%;
+}
+
+.pin-dot.filled { background: var(--text); border-color: var(--text); }
+.pin-dot.new { animation: dot-pop .35s var(--spring); }
+
+@keyframes dot-pop {
+	from { transform: scale(.3); }
+}
+
+/* Easter egg: 0000 at login. A cheeky head-tilt wobble, not the "wrong" shake. */
+.pin-dots.nice-try { animation: nice-try .9s var(--spring); }
+
+@keyframes nice-try {
+	20% { transform: translateY(-.6rem) rotate(-8deg) scale(1.1); }
+	45% { transform: rotate(6deg) scale(1.05); }
+	70% { transform: rotate(-3deg); }
+}
+
+.keypad {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1rem;
+}
+
+.pin-key { transition: opacity .3s; }
+
+/* While checking, or waiting after too many tries: the keys rest, but Cancel still works. */
+.keypad.disabled .pin-key:not(.cancel) { opacity: .35; pointer-events: none; }
+
+.pin-key {
+	display: grid;
+	place-items: center;
+	height: 6rem;
+	border-radius: 1.75rem;
+	background: var(--muted-fill);
+	color: var(--text);
+	font-size: 2.75rem;
+}
+
+.pin-key .icon { width: 2.75rem; height: 2.75rem; }
+.pin-key.ok { background: var(--primary); color: var(--primary-text); font-size: 2rem; font-weight: 500; }
+.pin-key.cancel { font-size: 2rem; font-weight: 500; }
+
+/* Under the keypad, centred: "Forgot PIN?" (logging in) and/or Cancel. */
+.pin-actions { justify-content: center; }

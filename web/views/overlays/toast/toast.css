@@ -1,0 +1,49 @@
+
+/* Toast: outlined message at the bottom (see toast.js). */
+
+.toast {
+	position: absolute;
+	left: 50%;
+	bottom: 2.5rem;
+	translate: -50% 0;
+	padding: 1.25rem 2.25rem;
+	border: .25rem solid var(--text-soft);
+	border-radius: 1.5rem;
+	background: var(--page); /* reads as "no fill", but stays legible over cards */
+	color: var(--text);
+	font-size: 1.75rem;
+	white-space: nowrap;
+	pointer-events: none; /* taps go through to what's underneath (e.g. a calendar day)... */
+}
+
+.toast:has(.toast-action:not([hidden])) {
+	display: flex;
+	align-items: center;
+	gap: 2rem;
+	padding-right: 1rem;
+}
+
+/* "Undo": a filled pill inside the outlined toast. */
+.toast-action {
+	height: 4rem;
+	padding: 0 1.75rem;
+	border-radius: 1rem;
+	background: var(--selected);
+	color: var(--selected-text);
+	font-size: 1.75rem;
+	pointer-events: auto; /* ...except on its button */
+}
+
+.toast.showing {
+	animation: pop-in .5s var(--spring) both;
+}
+
+/* On the way out: a little hop, then it tips over and drops off the screen. */
+.toast.leaving {
+	animation: toast-away .7s cubic-bezier(.5, -0.4, .7, .4) both;
+}
+
+@keyframes toast-away {
+	30%  { transform: translateY(-1.25rem) rotate(2deg) scale(1.04); opacity: 1; }
+	100% { transform: translateY(9rem) rotate(-8deg) scale(.85); opacity: 0; }
+}
