@@ -1,0 +1,15 @@
+
+# troha-client: builds the page (Svelte, with Node), then serves it with Caddy, which
+# also passes /api on to troha-server. Built by compose.yml; see readme.md.
+
+FROM node:22-alpine AS build
+WORKDIR /client
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+# Only Caddy and the built page are kept (no Node).
+FROM caddy:2-alpine
+COPY caddyfile /etc/caddy/Caddyfile
+COPY --from=build /client/dist /srv/web

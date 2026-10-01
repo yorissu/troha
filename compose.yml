@@ -1,0 +1,74 @@
+
+# Troha: three services, started together.
+#
+#   troha-client   Caddy: the page, and the only way in from outside (passes /api on)
+#   troha-server   the Python API, with the SQLite database (a file in the troha_data volume)
+#   troha-backup   a copy of the database every night (into the troha_backups volume)
+#
+# First time: copy .env.example to .env and fill it in (see readme.md). Then:
+#   docker compose up -d --build     start (or update) everything
+#   docker compose ps                what's running
+#   docker compose logs -f           what they're saying
+#   docker compose down              stop everything (the volumes, and so the data, stay)
+
+name: troha
+
+services:
+  troha-client:
+    build: ./client
+    image: troha-client
+    ports:
+      - "${TROHA_HTTP_PORT:-8080}:80"
+      - "${TROHA_HTTPS_PORT:-8443}:443"
+    environment:
+      TROHA_SITE_ADDRESS: ${TROHA_SITE_ADDRESS:-:80}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      troha-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  troha-server:
+    build: ./server
+    image: troha-server
+    env_file: .env
+    environment:
+      TROHA_DB_PATH: /data/troha.db
+      TROHA_SELF_CHECK_URL: http://127.0.0.1:8000/api/health
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - troha_data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  troha-backup:
+    image: troha-server
+    pull_policy: never
+    command: ["python", "-m", "troha_server", "backup"]
+    env_file: .env
+    environment:
+      TROHA_DB_PATH: /data/troha.db
+      TROHA_BACKUP_DIR: /backups
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - troha_data:/data
+      - troha_backups:/backups
+    depends_on:
+      troha-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  troha_data:
+  troha_backups:
+  caddy_data:
+  caddy_config:

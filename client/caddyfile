@@ -1,0 +1,42 @@
+
+# troha-client's Caddy: the only way into Troha from outside.
+#   /api/...   passed on to troha-server (on the internal network only)
+#   anything else   the page (the built Svelte app in /srv/web)
+#
+# The address comes from TROHA_SITE_ADDRESS (.env): ":80" serves plain HTTP on any
+# name; a domain (e.g. troha.example.com) makes Caddy get an HTTPS certificate by
+# itself and redirect HTTP to HTTPS (see readme.md, "Going online with a domain").
+
+{$TROHA_SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		# The page may only load things from Troha itself.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		# Once served over HTTPS, browsers keep to it (they ignore this over plain HTTP).
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	handle /api/* {
+		request_body {
+			max_size 2MB
+		}
+		reverse_proxy troha-server:8000
+	}
+
+	handle {
+		root * /srv/web
+		# Built scripts and styles have their content's hash in their names: keep them for a year.
+		@built path /build/*
+		header @built Cache-Control "public, max-age=31536000, immutable"
+		# Everything else is checked for changes on every load (so updates show at once).
+		@rest not path /build/*
+		header @rest Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,5 +1,0 @@
-
-# Lets the video group (the Pi's desktop user is in it) dim the screen's backlight
-# and switch it off, for Troha's Brightness and Screen buttons. Nothing else.
-# Installed by pi/install.sh as /etc/udev/rules.d/50-troha-backlight.rules.
-ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power"

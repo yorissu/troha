@@ -1,128 +1,89 @@
 
 # Troha (TRacker Of HAbits)
 
-A calm habit board for a wall-mounted touchscreen. It runs entirely on the device: a tiny local server plus a web page, with nothing loaded from the internet.
+A habit board with accounts. Three services, run with Docker Compose:
 
-## What you need
+| Service | Folder | What it is |
+| --- | --- | --- |
+| `troha-client` | `client/` | The page (Svelte 5, built with Vite), served by Caddy, which also passes `/api` on to the server. The only way in from outside. |
+| `troha-server` | `server/` | The API (Python, FastAPI) with the SQLite database (`troha.db` in the `troha_data` volume). Only on the internal network. |
+| `troha-backup` | `server/` | The same image, copying the database every night into the `troha_backups` volume. |
 
-- Python 3 (already installed on Raspberry Pi OS). Nothing else to install or build.
-- Chromium, or any modern browser, to show the page.
-- A 1920×1080 screen works best. Other screen shapes get the same layout, scaled, with dark bars at the edges.
+Everything in the database except email addresses is sealed (AES-256-GCM, a key per account, wrapped with a key derived from `TROHA_SECRET_KEY`) or hashed (Argon2id for passwords and PINs, SHA-256 for tokens).
 
-## Run it
+## Run
 
-```bash
-python3 server.py
-```
+Needs Docker with Compose.
 
-Open <http://127.0.0.1:8080>. Stop the server with Ctrl+C. To use another port, set `TROHA_PORT` first, e.g. `TROHA_PORT=9000 python3 server.py`.
-
-If the server stops answering, the page stops taking changes at once: a pop-up covers everything, the change that couldn't be saved is undone, and nothing can be changed until the server is back. The pop-up can't be closed; as soon as the server answers again, the page reloads by itself. On the Pi the server is started again automatically (see below), within a few seconds, also if it gets stuck. Elsewhere, start `server.py` again yourself.
-
-Your habits are saved in the `data` folder, in `data/habits.json` to begin with. Copy the folder to back them up. You can keep several data files there and switch between them in **Settings → Data file**. (An older `habits.json` next to `server.py` is moved into `data` by itself.)
-
-## Using Troha
-
-- **Today** shows today's habits. Tap one to tick it off, tap again to untick. Tick them all for a small celebration.
-- **Calendar** shows a ring for each day: how much got done. The **eraser** button lets you tap days to remove their counters; tap it again, leave the Calendar, or wait 10 seconds to stop.
-- **Manage** shows every habit as a card: its name, its week (a bar for each weekday, filled on the days it's on), and small tags for anything unusual, like *every 2 weeks*, a later start, or *private*. Tap one to edit or delete it.
-- **Undo**: after deleting a habit or clearing days, the message at the bottom offers *Undo* for a few seconds. (Every message's outline counts down to when it goes.)
-- **+** adds a habit: name, days, repeat (every 1–4 weeks), start date, colour, and whether it's private.
-- **Private habits** show as blank bars until you log in with your PIN (lock button, top right). The first tap on the lock button sets up the PIN. You're logged out after a minute without a touch. A forgotten PIN can only be reset, which deletes all private habits.
-- **The three round buttons under the clock** each step through three settings:
-	- **Theme**: Light, Dark, Auto (dark during the night time).
-	- **Brightness**: Bright, Dim, Auto (dim during the sleep time).
-	- **Screen**: Always on; Off when idle (black after 2 minutes without a touch); Auto (the same, but only during the sleep time). While the screen may go black, the button's border counts down to it. A tap wakes the screen and does nothing else.
-- **Settings** (gear button, top right). Changes apply right away; no PIN needed.
-	- **Tutorial**: *Take the tour* walks you through Troha in about a minute: setting a PIN, each view (lit up with its button), every button, and a hint about the easter eggs. Everything else is dimmed and can't be tapped while it runs (only the PIN pad, while you set a PIN); *Skip tour* ends it.
-	- **Data file**: which file in the `data` folder your habits, ticks and settings live in. Type to search the files, tap one to use it, or type a new name and tap *Create* for a fresh start. The bin button deletes a file for good (after asking; not the one in use). Each file has its own habits, settings and PIN.
-	- **Night and sleep**: the night (left) is when the Auto theme turns dark; the sleep time (right) is when Auto brightness dims and the Auto screen goes off when idle. Sleep always lies within the night: the clock only offers times inside it. Tap a time to change it on the clock.
-	- **Date and time**: the date and the time are always on show. Tap either to set it yourself (calendar or clock), or tap *Get from the network*. (Only changes the Pi's clock, once set up as below; elsewhere it can be tried out, but the clock stays as it is.)
-	- **Motion**: *Bouncy* (things pop, bounce and slide) or *Calm* (no animations at all).
-
-At midnight the board moves to the new day by itself. After 2 minutes without a touch it returns to Today. To protect the screen, the whole board moves by a pixel or two every hour.
-
-On a Raspberry Pi touch display, dimming turns the backlight down and "screen off" switches it off, so the screen really gives off no light and saves power. Screens whose backlight Troha can't control (most HDMI monitors, or a computer while developing) get the page darkened instead.
-
-## Raspberry Pi
-
-1. Copy this folder to the Pi, e.g. `/home/pi/troha`.
-2. **Set it up**, once, as the desktop user (not with sudo; it asks for your password when it needs it):
+1. Copy `.env.example` to `.env`. Make a secret key and put it after `TROHA_SECRET_KEY=` (back it up; it must never change):
 	```bash
-	sh /home/pi/troha/pi/install.sh
+	docker compose run --rm --no-deps troha-server python -m troha_server keygen
 	```
-	It sets up:
-	- the server as a service (`troha.service`), started at boot and again whenever it stops (a server that gets stuck stops itself, so it's started afresh too);
-	- Chromium, full-screen, started with the desktop (Raspberry Pi OS Bookworm's labwc desktop) and again whenever it closes. The mouse pointer is hidden;
-	- permission to set the clock (Settings → *Date and time*) and to dim and switch off the backlight;
-	- the system's own screen blanking off (Troha switches the screen off itself).
+2. Start (and, later, update):
+	```bash
+	docker compose up -d --build
+	```
+3. Open <http://localhost:8080> and sign up: a new account gets a 7-day free license. To give someone more days, make a license code (they enter it under Account -> License):
+	```bash
+	docker compose exec troha-server python -m troha_server code --days 365
+	```
 
-	Then reboot: `sudo reboot`. Running it again is safe. On a desktop other than labwc it prints the line to add to that desktop's autostart (Wayfire: under `[autostart]` in `~/.config/wayfire.ini`; X11/LXDE: `~/.config/lxsession/LXDE-pi/autostart`, with `@` in front).
-3. **Keyboard.** Troha has its own on-screen keyboard. Leave the Pi's on-screen keyboard off (*Raspberry Pi Configuration* → *Display*), so two don't appear.
-4. **Correct time.** The Pi sets its clock from the network. Keep it on Wi-Fi, or fit a clock battery, or the date may be wrong after a power cut. The time zone is set in `sudo raspi-config` → *Localisation Options* → *Timezone*.
+`docker compose logs -f` shows what the services say (including emails, until `TROHA_SMTP_*` is set). `docker compose down` stops them; the data stays in the volumes.
 
-The server's messages: `journalctl -u troha`.
+Admin commands: `docker compose exec troha-server python -m troha_server <command>`:
+`code [--count N] [--days D]`, `users`, `grant EMAIL --days D`, `revoke EMAIL`, `delete-user EMAIL`, `backups`, `restore NAME`.
 
-**Uninstall** (e.g. to set it up again from scratch), then reboot:
+**Licenses** are runs of days: signing up gives 7, license codes and payments add more (to the end, so renewing early loses nothing). Without a running license an account can still sign in, but only to its Account and Notices views, to renew it (in the currency chosen there). Prices are in `server/troha_server/pricing.py`; paying is off until a payment provider is set up (`TROHA_PAYMENTS`; the dev stack uses `fake`, which "pays" at once). 5 days before a license ends, a warning email goes out and the Notices view shows a warning (its button gets a dot). License codes are stored only as keyed hashes (with `TROHA_SECRET_KEY`), so changing that key makes unused codes stop working.
+
+**Restore a backup** (everything since it is lost):
 ```bash
-sh /home/pi/troha/pi/uninstall.sh
+docker compose stop troha-server
+docker compose exec troha-backup python -m troha_server restore troha_2026-10-01.db
+docker compose start troha-server
 ```
-It undoes everything `install.sh` did: the kiosk and server stop and no longer start at boot, the clock and backlight permissions are removed, the system's screen blanking is back on, and the kiosk's Chromium profile is deleted. The Troha folder and your data are kept; delete the folder yourself if you want them gone. To set it up again, run `install.sh`.
 
-## Changing things
+**HTTPS with a domain**: point the domain at this computer (forward ports 80 and 443), then in `.env` set `TROHA_SITE_ADDRESS=troha.example.com`, `TROHA_HTTP_PORT=80`, `TROHA_HTTPS_PORT=443`, `TROHA_PUBLIC_URL=https://troha.example.com`, `TROHA_SECURE_COOKIES=true`, and `docker compose up -d`. Caddy fetches and renews the certificate itself. Don't let others use plain HTTP over the internet.
 
-- **Settings** (language, colours offered, screen care, PIN rules, timings, how long messages stay, the easter eggs): `web/config.js`, grouped by what they're for. The night and sleep times, and Theme, Brightness, Screen and Motion, are set in the app itself.
-- **What Troha says** (greetings, cheers, the PIN pad's remarks, the calendar's "hey!"…): `web/messages.js`. Each message is a list of ways to say it; one is picked at random, never the same one twice in a row. Add as many as you like.
-- **Colours and look**: `web/styles/tokens.css` (the dark theme has its own block there).
-- After changing a file, reload the page (F5 on a keyboard, or reboot the Pi).
+## Develop
 
-## Code layout
+Everything in Docker, nothing to install but Docker (`compose.dev.yml`: its own database, no `.env` needed):
+```bash
+docker compose -f compose.dev.yml up --build                                # then open http://localhost:5173
+docker compose -f compose.dev.yml exec troha-server python -m troha_server code --days 30   # sign-up needs none
+```
+The page reloads as you edit `client/`, the server restarts as you edit `server/troha_server/`. Emails (reset links) show up in `docker compose -f compose.dev.yml logs -f troha-server`. `docker compose -f compose.dev.yml down -v` throws the dev database away. (Set `COMPOSE_FILE=compose.dev.yml` in your shell to leave out the `-f`.)
 
-The page is plain HTML, CSS and JavaScript modules, organised as model-view-controller:
+Or the page outside Docker (it notices changes faster on Windows), with only the server in Docker (on port 8000):
+```bash
+docker compose -f compose.dev.yml up --build -d troha-server
+cd client
+npm install
+npm run dev
+```
 
-| Folder | What's in it |
+The database's tables are made by the numbered scripts in `server/troha_server/migrations/`, run at startup. To change them, add the next script (never edit one that has run).
+
+## Restarting
+
+Add `-f compose.dev.yml` for the dev stack.
+
+| What | Command |
 | --- | --- |
-| `web/config.js` | Settings |
-| `web/messages.js` | What Troha says: the remarks it picks from |
-| `web/first_look.js` | Runs before the page is drawn: last time's theme and dimness, so a reload doesn't flash |
-| `web/core/` | Shared helpers: dates, schedule rules, DOM helpers, text (incl. the random-remark picker), fuzzy search, clock, idle timer, taps (one touch = one tap, and counting quick taps), crypto |
-| `web/models/` | Data and rules: habits, the daily log, settings, logging in, talking to the server |
-| `web/views/` | The UI components, one folder each (its `.js`, and its `.css` if it needs its own styles), grouped: `base/`, `controls/`, `frame/` (sidebar and header), `pages/`, `sheets/` (pop-ups) and `overlays/` |
-| `web/controllers/` | Connect models and views; `app_controller.js` wires everything |
-| `web/styles/` | Shared styles: fonts, colours (`tokens.css`), basics, animations, controls, layout |
-| `web/assets/` | Fonts, the icon sprite, and Troha's own icon (`app_icon.svg`, shown in the browser tab) |
-| `server.py` | Starts the local server |
-| `backend/` | The server's parts: data files, clock, backlight, web requests, and its check on itself |
-| `data/` | Your data files (not stored in git) |
-| `pi/` | Raspberry Pi setup: `install.sh` and `uninstall.sh`, the `troha.service` service, `kiosk.sh` (Chromium full-screen), and the clock and backlight permissions |
+| Restart everything | `docker compose restart` |
+| Restart one service | `docker compose restart troha-server` (or `troha-client`, `troha-backup`) |
+| After changing code: rebuild and restart what changed | `docker compose up -d --build` |
+| Rebuild one service | `docker compose up -d --build troha-client` |
+| Stop / start one service | `docker compose stop troha-server`, `docker compose start troha-server` |
+| After changing `.env` | `docker compose up -d` (restart doesn't reread it) |
+| See what's running | `docker compose ps` |
+| Follow one service's log | `docker compose logs -f troha-server` |
 
-Every view is a class that builds its own element, starting from a few base classes:
+## Layout
 
-```
-Component                 root element (base/component)
-├── Button                label and/or icon, squish on press, active/disabled (base/button)
-│   ├── IconButton        square icon button, plain or in a habit colour
-│   ├── PickButton        filled pill with an icon and a value (date, time, file); opens a picker
-│   ├── CycleButton       round button stepping through settings
-│   │   └── ThemeButton, BrightnessButton, ScreenButton (+ TimeoutRing)
-│   └── TimeoutButton     a button with a TimeoutRing
-│       ├── LockButton
-│       └── ClearButton
-├── PillRow               a row of choice pills
-├── TextField             a text field for the on-screen keyboard; marks itself when something's missing
-├── MonthBar              ‹ month › (Calendar and date picker), with weekdayRow()
-├── ClockDial             round 24-hour clock face: hours outside, minutes inside
-├── TimeoutRing           turns a button's border into a countdown
-├── Sidebar, Header                                          (frame/)
-├── TodayView, HabitCard, CalendarView, ManageView, SettingsView  (pages/)
-├── Toast, Confetti, NightShade, OnScreenKeyboard, ServerDown, Tour (overlays/)
-├── SheetHost             the overlay that shows one pop-up at a time (base/sheet)
-└── Sheet                 pop-up base; with onSubmit it is a form (base/sheet)
-	└── ConfirmSheet, PinPad, DatePicker, TimePicker, FilePicker, HabitEditor  (sheets/)
-```
+- `client/src/`: `app.svelte` (the whole page) and `main.js`; `components/` (one `.svelte` file each: markup, logic and styles; `keyboard/` is the on-screen keyboard); `controllers/` (what taps do; `app_controller.svelte.js` wires the board); `services/` (one of each for the whole page: clock, idle timer, toast, notices, confetti); `models/` (account, habits, PIN lock, talking to the API); `core/` (dates, schedules, taps); `styles/` (shared styles; colours in `tokens.css`); `config.js` and `messages.js` (tunables and wording).
+- `client/caddyfile`, `client/dockerfile`: how the page is built and served.
+- `server/troha_server/`: `app.py` (the API's routes), and one module per job (accounts, PIN, licenses, pricing, payments, reminders, user data, crypto, database, backup, admin commands in `cli.py`); each starts with what it does.
+- `compose.yml`, `.env.example`: the services and their settings; `compose.dev.yml`: the same for developing.
+- `todo.md`: what's left before going live.
 
-Shared styles, instead of each component repeating them: buttons, pills, pick buttons, notes (`.note`), text fields and the hidden-name bar (`.redacted`) in `web/styles/controls.css`; the scrolling column (`.scroll-area`) and empty messages in `web/styles/layout.css`; animations such as `rise-in` in `web/styles/animations.css`.
-
-To add a component: create `web/views/<group>/<name>/<name>.js` (a class extending one of these) and, if it needs styles, `<name>.css` (import it in `web/main.css`, in its group), then create it in `web/controllers/app_controller.js`. A new page also needs an entry in the header's list of views (`frame/header/header.js`).
-
-Indentation is tabs, shown 4 spaces wide (`.editorconfig` and `.vscode/settings.json` set this up in most editors).
+Indentation is tabs, shown 4 wide; every file starts with an empty line.

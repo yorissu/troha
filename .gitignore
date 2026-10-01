@@ -1,8 +1,15 @@
 
-# Your data: the data folder is kept, its files are not
-data/*
-!data/.gitkeep
-habits.json
+# Secrets: the real settings (see .env.example)
+.env
 
-# Python
+# Old data from before the rewrite, if it's still there
+data/
+
+# Built and downloaded
+client/node_modules/
+client/dist/
+
+# Developing
+dev.db*
 __pycache__/
+.venv/

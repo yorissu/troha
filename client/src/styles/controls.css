@@ -1,0 +1,163 @@
+
+/* =====================================================================
+   Shared controls: buttons, pills, swatches, text fields and form layout.
+   ===================================================================== */
+
+/* Anything tappable with .squish squishes when pressed and springs back. */
+.squish {
+	transition: transform .4s var(--spring), background-color .25s, border-color .25s, color .25s;
+}
+.squish:active {
+	transform: scale(.9);
+	transition-duration: .1s;
+}
+
+/* Square button with an icon, coloured by a .c-<colour> class. */
+.icon-button {
+	display: grid;
+	place-items: center;
+	width: 6.5rem;
+	height: 6.5rem;
+	border: .3rem solid transparent;
+	border-radius: 2.125rem;
+	background: var(--c-fill);
+	color: var(--c-text);
+	/* Kept on its own layer: otherwise, at a fractional position, the icon jumps by a
+	   fraction of a pixel when the squish ends and the browser snaps it back to whole pixels. */
+	will-change: transform;
+}
+.icon-button .icon { width: 3rem; height: 3rem; }
+.icon-button.small { width: 4.5rem; height: 4.5rem; border-radius: 1.5rem; }
+.icon-button.small .icon { width: 2.25rem; height: 2.25rem; }
+.icon-button:disabled { opacity: .35; pointer-events: none; }
+
+/* Text buttons */
+.button {
+	height: 5rem;
+	padding: 0 2.5rem;
+	border-radius: 1.75rem;
+	background: var(--muted-fill);
+	font-size: 1.875rem;
+	font-weight: 500;
+}
+.button.primary { background: var(--primary); color: var(--primary-text); }
+.button.danger { background: var(--danger); color: var(--danger-text); }
+.button.link { padding: 0 1rem; background: none; color: var(--text-soft); text-decoration: underline; font-weight: 400; }
+
+/* Choice pills */
+.pill-row { display: flex; flex-wrap: wrap; gap: .875rem; }
+.pill {
+	min-width: 6rem;
+	height: 4.5rem;
+	padding: 0 1.75rem;
+	border-radius: 1.5rem;
+	background: var(--muted-fill);
+	font-size: 1.75rem;
+}
+.pill.selected { background: var(--selected); color: var(--selected-text); }
+
+/* A pill showing a date or time, with an icon; tapping it opens the date or time picker. */
+.pick-button {
+	display: inline-flex;
+	align-items: center;
+	gap: .875rem;
+	white-space: nowrap;
+	background: var(--selected);
+	color: var(--selected-text);
+}
+
+.pick-button .icon {
+	width: 2.25rem;
+	height: 2.25rem;
+}
+
+/* Colour swatches, spread across the row. The padding leaves room for the
+   selected swatch's grown ring, so swatches never touch or get clipped. */
+.swatch-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 2rem;
+	padding: .75rem 2rem;
+}
+.swatch {
+	flex: none;
+	width: 4.5rem;
+	height: 4.5rem;
+	border: .3rem solid var(--c-edge);
+	border-radius: 50%;
+	background: var(--c-fill);
+}
+.swatch.selected {
+	transform: scale(1.15);
+	box-shadow: 0 0 0 .3rem var(--surface), 0 0 0 .6rem var(--c-ink);
+}
+
+/* A short explanation under a control or a title, in the soft text colour. */
+.note { margin: .75rem 0 0; font-size: 1.75rem; color: var(--text-soft); }
+
+/* A hidden habit's name while they're locked: a blank bar in the habit's colour. The
+   owner sets its size. */
+.redacted {
+	border-radius: 1rem;
+	background: var(--c-soft); /* shows on the fill in both themes */
+	opacity: .3;
+}
+
+/* Text field */
+.text-input {
+	width: 100%;
+	height: 5rem;
+	padding: 0 1.75rem;
+	border: .25rem solid transparent;
+	border-radius: 1.5rem;
+	outline: none;
+	background: var(--muted-fill);
+	color: var(--text);
+	font: inherit;
+	font-size: 2rem;
+	user-select: text;
+	transition: var(--fade);
+}
+.text-input:focus { border-color: var(--text-soft); }
+
+/* Form layout */
+.field-label {
+	display: block;
+	margin: 1.25rem 0 .75rem;
+	font-size: 1.5rem;
+	color: var(--text-soft);
+}
+.field-row { display: flex; justify-content: space-between; gap: 2.5rem; } /* fields side by side, spread across */
+.field-grow { flex: 1; min-width: 0; } /* takes the room the others leave */
+
+/* Something missing: the field itself turns red (no extra message, so nothing moves). */
+.text-input.invalid { border-color: var(--error); }
+.text-input.invalid::placeholder { color: var(--error); }
+.pill-row.invalid .pill { box-shadow: inset 0 0 0 .25rem var(--error); }
+.spacer { flex: 1; }
+
+/* Timeout ring (components/controls/timeout_ring.js): the host's border is the countdown. */
+
+.has-timeout-ring {
+	position: relative;
+	border: .3rem solid transparent;
+}
+
+/* While counting down, the border is a faint track... */
+.has-timeout-ring.timing {
+	border-color: color-mix(in srgb, var(--timeout-color) 35%, transparent);
+}
+
+/* ...and the line on it empties (timeout_ring.js sets its stroke-dashoffset from 0 to 1);
+   the 1s transition makes it glide. */
+.timeout-ring {
+	position: absolute;
+	pointer-events: none;
+}
+
+.timeout-fill {
+	fill: none;
+	stroke: var(--timeout-color);
+	stroke-dasharray: 1;
+	transition: stroke-dashoffset 1s linear;
+}

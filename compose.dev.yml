@@ -1,0 +1,53 @@
+
+# Troha for developing: the same server and page as compose.yml, but both reload by
+# themselves when their code changes, with a database of their own (a separate
+# project, troha-dev, so it never touches the real one). No .env needed: a secret
+# key for the dev database is made the first time, inside its volume.
+#
+#   docker compose -f compose.dev.yml up --build     start, then open http://localhost:5173
+#   docker compose -f compose.dev.yml exec troha-server python -m troha_server code --days 30
+#   docker compose -f compose.dev.yml logs -f troha-server    emails (reset links) show up here
+#   docker compose -f compose.dev.yml down -v        stop, and throw the dev database away
+#
+# (Set COMPOSE_FILE=compose.dev.yml in your shell to leave out the -f.)
+
+name: troha-dev
+
+services:
+  troha-server:
+    build: ./server
+    environment:
+      TROHA_DB_PATH: /data/troha.db
+      TROHA_SECRET_KEY_FILE: /data/dev_secret
+      TROHA_PUBLIC_URL: http://localhost:5173
+      TROHA_PAYMENTS: fake # "paying" for days works at once, with no money (see server/troha_server/payments.py)
+    command:
+      - sh
+      - -c
+      - |
+        [ -s /data/dev_secret ] || python -m troha_server keygen > /data/dev_secret
+        exec uvicorn troha_server.app:create_app --factory --host 0.0.0.0 --port 8000 --reload --reload-dir troha_server
+    volumes:
+      - ./server/troha_server:/app/troha_server:ro
+      - dev_data:/data
+    ports:
+      - "8000:8000" # also reachable from a page run outside Docker (npm run dev)
+
+  troha-client:
+    image: node:22-alpine
+    working_dir: /client
+    command: sh -c "npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"
+    environment:
+      TROHA_SERVER: http://troha-server:8000
+      TROHA_POLL: "1" # notice changes on a mounted folder (file events don't cross into Docker on Windows and macOS)
+    volumes:
+      - ./client:/client
+      - dev_node_modules:/client/node_modules # Linux's own packages, apart from the ones on this computer
+    ports:
+      - "5173:5173"
+    depends_on:
+      - troha-server
+
+volumes:
+  dev_data:
+  dev_node_modules:
